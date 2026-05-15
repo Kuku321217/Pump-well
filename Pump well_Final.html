@@ -1,0 +1,1901 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pump Well Calculation Software</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .watermark {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(44, 62, 80, 0.95);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 0.9em;
+            font-weight: bold;
+            z-index: 9999;
+            pointer-events: none;
+            user-select: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            letter-spacing: 1px;
+        }
+
+        .watermark::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(45deg, rgba(52,152,219,0.3), rgba(231,76,60,0.3));
+            border-radius: 8px;
+            z-index: -1;
+        }
+
+        @media print {
+            .watermark {
+                display: block !important;
+                position: fixed !important;
+                opacity: 1 !important;
+            }
+        }
+
+        .auto-calc-indicator {
+            background: #27ae60;
+            color: white;
+            padding: 8px 20px;
+            border-radius: 20px;
+            display: inline-block;
+            margin-top: 10px;
+            font-size: 0.9em;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .tabs {
+            display: flex;
+            background: #ecf0f1;
+            border-bottom: 3px solid #3498db;
+            overflow-x: auto;
+        }
+
+        .tab {
+            padding: 15px 25px;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-size: 1em;
+            font-weight: 600;
+            color: #7f8c8d;
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+
+        .tab:hover {
+            background: #d5dbdd;
+        }
+
+        .tab.active {
+            background: white;
+            color: #3498db;
+            border-bottom: 3px solid #3498db;
+            margin-bottom: -3px;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 20px;
+            border-left: 5px solid #3498db;
+        }
+
+        .section h2 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            display: flex;
+            align-items: center;
+        }
+
+        .section h2::before {
+            content: "▶";
+            margin-right: 10px;
+            color: #3498db;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            font-weight: 600;
+            color: #34495e;
+            margin-bottom: 8px;
+            font-size: 0.95em;
+        }
+
+        .form-group .label-symbol {
+            color: #7f8c8d;
+            font-style: italic;
+            font-size: 0.9em;
+        }
+
+        .input-wrapper {
+            display: flex;
+            align-items: stretch;
+        }
+
+        .form-group input, .form-group select {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #dfe6e9;
+            border-radius: 5px 0 0 5px;
+            font-size: 1em;
+            transition: all 0.3s;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 10px rgba(52, 152, 219, 0.2);
+        }
+
+        .form-group input:disabled {
+            background: #ecf0f1;
+            color: #7f8c8d;
+            cursor: not-allowed;
+        }
+
+        .unit {
+            padding: 12px 15px;
+            background: #ecf0f1;
+            border: 2px solid #dfe6e9;
+            border-left: none;
+            border-radius: 0 5px 5px 0;
+            color: #7f8c8d;
+            font-weight: 600;
+            min-width: 70px;
+            text-align: center;
+        }
+
+        .result-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+
+        .result-box h3 {
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background: rgba(255,255,255,0.1);
+            margin-bottom: 10px;
+            border-radius: 5px;
+        }
+
+        .result-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .result-label {
+            font-weight: 600;
+        }
+
+        .result-value {
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+
+        .status-ok {
+            background: #27ae60;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+
+        .status-not-ok {
+            background: #e74c3c;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+
+        .export-btn {
+            background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 1em;
+            font-weight: bold;
+            border-radius: 25px;
+            cursor: pointer;
+            margin: 10px 5px;
+            transition: transform 0.2s;
+            box-shadow: 0 5px 15px rgba(39, 174, 96, 0.3);
+        }
+
+        .export-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(39, 174, 96, 0.4);
+        }
+
+        .export-btn:active {
+            transform: translateY(0);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ecf0f1;
+        }
+
+        th {
+            background: #3498db;
+            color: white;
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        .info-note {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+            color: #856404;
+        }
+
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+            .tabs, .export-btn {
+                display: none;
+            }
+            .container {
+                box-shadow: none;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .tabs {
+                flex-direction: column;
+            }
+            
+            .header h1 {
+                font-size: 1.8em;
+            }
+
+            .export-btn {
+                width: 100%;
+                margin: 5px 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔧 Pump Well Calculation Software</h1>
+            <p>Comprehensive Engineering Analysis Tool</p>
+            <div class="auto-calc-indicator">⚡ Auto-Calculating</div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('input')">📝 Input Data</button>
+            <button class="tab" onclick="switchTab('pressure')">💧 Pressure Check</button>
+            <button class="tab" onclick="switchTab('seismic')">🌍 Seismic Analysis</button>
+            <button class="tab" onclick="switchTab('frequency')">📊 Natural Frequency</button>
+            <button class="tab" onclick="switchTab('braces')">🔩 Braces Design</button>
+            <button class="tab" onclick="switchTab('summary')">📋 Summary Report</button>
+        </div>
+
+        <div class="content">
+            <!-- INPUT TAB -->
+            <div id="input" class="tab-content active">
+                <div class="section">
+                    <h2>1. Tank Design Data</h2>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Tank Inner Diameter <span class="label-symbol">(ID)</span></label>
+                            <div class="input-wrapper">
+                                <input type="number" id="tankID" value="86000" step="1">
+                                <span class="unit">mm</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Product Density <span class="label-symbol">(ρ_product)</span></label>
+                            <div class="input-wrapper">
+                                <input type="number" id="productDensity" value="480" step="1">
+                                <span class="unit">Kg/m³</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Tank High Liquid Level <span class="label-symbol">(HLL)</span></label>
+                            <div class="input-wrapper">
+                                <input type="number" id="HLL" value="34730" step="1">
+                                <span class="unit">mm</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Hydrostatic Liquid Height <span class="label-symbol">(H_test)</span></label>
+                            <div class="input-wrapper">
+                                <input type="number" id="Htest" value="20838" step="1">
+                                <span class="unit">mm</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Test Liquid Density <span class="label-symbol">(ρ_test)</span></label>
+                            <div class="input-wrapper">
+                                <input type="number" id="testDensity" value="1000" step="1">
+                                <span class="unit">Kg/m³</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Weight of In-Tank Equipment <span class="label-symbol">(W_in_tank_pump)</span></label>
+                            <div class="input-wrapper">
+                                <input type="number" id="WinTankPump" value="5010" step="1">
+                                <span class="unit">Kg</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Weight of Stairway <span class="label-symbol">(W_stair)</span></label>
+                            <div class="input-wrapper">
+                                <input type="number" id="Wstair" value="2870" step="1">
+                                <span class="unit">Kg</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h2>2. Pipe Design Data</h2>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Design Pressure of Outer Tank <span class="label-symbol">(Pd)</span></label>
+                            <div class="input-wrapper">
+                                <input type="number" id="Pd" value="29" step="0.001">
+                                <span class="unit">kPa</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Internal Design Pressure <span class="label-symbol">(Pi)</span></label>
+                            <div class="input-wrapper">
+                                <input type="number" id="Pi" value="0.189" step="0.001">
+                                <span class="unit">MPa</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Radius to Centerline <span class="label-symbol">(R01)</span></label>
+                            <div class="input-wrapper">
+                                <input type="number" id="R01" value="37500" step="1">
+                                <span class="unit">mm</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Length Between Supports <span class="label-symbol">(LL)</span></label>
+                            <div class="input-wrapper">
+                                <input type="number" id="LL" value="44520" step="1">
+                                <span class="unit">mm</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Outside Diameter <span class="label-symbol">(O.D.)</span></label>
+                            <div class="input-wrapper">
+                                <input type="number" id="OD" value="1067" step="0.1">
+                                <span class="unit">mm</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Wall Thickness <span class="label-symbol">(tn)</span></label>
+                            <div class="input-wrapper">
+                                <input type="number" id="tn" value="12.5" step="0.1">
+                                <span class="unit">mm</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Corrosion Allowance <span class="label-symbol">(C2)</span></label>
+                            <div class="input-wrapper">
+                                <input type="number" id="C2" value="0.3" step="0.1">
+                                <span class="unit">mm</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Wall Thickness Variation <span class="label-symbol">(C1)</span></label>
+                            <div class="input-wrapper">
+                                <input type="number" id="C1" value="0" step="0.1">
+                                <span class="unit">mm</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Pump Well Material</label>
+                            <div class="input-wrapper">
+                                <select id="material">
+                                    <option value="SS304" selected>SS 304</option>
+                                    <option value="SS316">SS 316</option>
+                                    <option value="CS">Carbon Steel</option>
+                                </select>
+                                <span class="unit">Type</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Tensile Strength <span class="label-symbol">(Ft)</span></label>
+                            <div class="input-wrapper">
+                                <input type="number" id="Ft" value="515" step="1">
+                                <span class="unit">MPa</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Yield Strength <span class="label-symbol">(Fy)</span></label>
+                            <div class="input-wrapper">
+                                <input type="number" id="Fy" value="205" step="1">
+                                <span class="unit">MPa</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Allowable Tensile Stress <span class="label-symbol">(St)</span></label>
+                            <div class="input-wrapper">
+                                <input type="number" id="St" value="138" step="1">
+                                <span class="unit">MPa</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Modulus of Elasticity <span class="label-symbol">(Em)</span></label>
+                            <div class="input-wrapper">
+                                <input type="number" id="Em" value="206866" step="1">
+                                <span class="unit">MPa</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Material Density <span class="label-symbol">(ρ_steel)</span></label>
+                            <div class="input-wrapper">
+                                <input type="number" id="rhoSteel" value="7930" step="1">
+                                <span class="unit">kg/m³</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Joint Efficiency <span class="label-symbol">(E)</span></label>
+                            <div class="input-wrapper">
+                                <input type="number" id="jointEfficiency" value="1" step="0.01" min="0.1" max="1">
+                                <span class="unit">-</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h2>3. External Pressure Data</h2>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Inner Pressure (Vacuum) <span class="label-symbol">(Pv1)</span></label>
+                            <div class="input-wrapper">
+                                <input type="number" id="Pv1" value="0.2313" step="0.0001">
+                                <span class="unit">MPa</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>External Pressure Factor A</label>
+                            <div class="input-wrapper">
+                                <input type="number" id="factorA" value="0.00028" step="0.00001">
+                                <span class="unit">-</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>External Pressure Factor B</label>
+                            <div class="input-wrapper">
+                                <input type="number" id="factorB" value="27" step="1">
+                                <span class="unit">-</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h2>4. Seismic Data</h2>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>OBE Horizontal Acceleration</label>
+                            <div class="input-wrapper">
+                                <input type="number" id="aOBE" value="0.122" step="0.001">
+                                <span class="unit">g</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>SSE Horizontal Acceleration</label>
+                            <div class="input-wrapper">
+                                <input type="number" id="aSSE" value="0.244" step="0.001">
+                                <span class="unit">g</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Design Internal Pressure at Bottom <span class="label-symbol">(Pc)</span></label>
+                            <div class="input-wrapper">
+                                <input type="number" id="Pc" value="2" step="0.01">
+                                <span class="unit">MPa</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h2>5. Pump Well Braces Design Data</h2>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Included Angle Between Two Braces</label>
+                            <div class="input-wrapper">
+                                <input type="number" id="braceAngle" value="60" step="1">
+                                <span class="unit">Degree</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Pump Well to Inner Tank Distance</label>
+                            <div class="input-wrapper">
+                                <input type="number" id="pumpToTankDist" value="2850" step="1">
+                                <span class="unit">mm</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Radius of Inner Tank</label>
+                            <div class="input-wrapper">
+                                <input type="number" id="innerTankRadius" value="43000" step="1">
+                                <span class="unit">mm</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Angle Size - b (width)</label>
+                            <div class="input-wrapper">
+                                <input type="number" id="angleB" value="150" step="1">
+                                <span class="unit">mm</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Angle Size - h (height)</label>
+                            <div class="input-wrapper">
+                                <input type="number" id="angleH" value="100" step="1">
+                                <span class="unit">mm</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Angle Size - t (thickness)</label>
+                            <div class="input-wrapper">
+                                <input type="number" id="angleT" value="12" step="1">
+                                <span class="unit">mm</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Number of Angles</label>
+                            <div class="input-wrapper">
+                                <input type="number" id="numAngles" value="2" step="1" min="1">
+                                <span class="unit">-</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Effective Length Factor (k)</label>
+                            <div class="input-wrapper">
+                                <input type="number" id="effectiveLengthFactor" value="2" step="0.1">
+                                <span class="unit">-</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PRESSURE CHECK TAB -->
+            <div id="pressure" class="tab-content">
+                <div class="section">
+                    <h2>Internal Pressure Check Results</h2>
+                    <div id="pressureResults">
+                        <div class="result-box">
+                            <p style="text-align: center; opacity: 0.7;">Results will appear automatically as you enter data...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h2>External Pressure Check Results</h2>
+                    <div id="externalPressureResults">
+                        <div class="result-box">
+                            <p style="text-align: center; opacity: 0.7;">Results will appear automatically as you enter data...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SEISMIC TAB -->
+            <div id="seismic" class="tab-content">
+                <div class="section">
+                    <h2>Seismic Analysis Results</h2>
+                    <div id="seismicResults">
+                        <div class="result-box">
+                            <p style="text-align: center; opacity: 0.7;">Results will appear automatically as you enter data...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FREQUENCY TAB -->
+            <div id="frequency" class="tab-content">
+                <div class="section">
+                    <h2>Natural Frequency Analysis</h2>
+                    <div id="frequencyResults">
+                        <div class="result-box">
+                            <p style="text-align: center; opacity: 0.7;">Results will appear automatically as you enter data...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BRACES TAB -->
+            <div id="braces" class="tab-content">
+                <div class="section">
+                    <h2>Pump Well Braces Design Results</h2>
+                    <div id="bracesResults">
+                        <div class="result-box">
+                            <p style="text-align: center; opacity: 0.7;">Results will appear automatically as you enter data...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SUMMARY TAB -->
+            <div id="summary" class="tab-content">
+                <div class="section">
+                    <h2>Complete Summary Report</h2>
+                    <div id="summaryResults">
+                        <div class="result-box">
+                            <p style="text-align: center; opacity: 0.7;">Results will appear automatically as you enter data...</p>
+                        </div>
+                    </div>
+                    <div style="margin-top: 20px; text-align: center;">
+                        <button class="export-btn" onclick="exportToPDF()">📄 Export to PDF</button>
+                        <button class="export-btn" onclick="exportToWord()">📝 Export to Word</button>
+                        <button class="export-btn" onclick="exportToExcel()">📊 Export to Excel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Watermark - Protected -->
+    <div class="watermark" id="wm">Developed by: AY</div>
+
+    <script>
+        // Multi-layer watermark protection system
+        (function() {
+            'use strict';
+            
+            // Protection Layer 1: Encoded watermark text
+            const _0x4a2c = ['RGV2ZWxvcGVkIGJ5OiBBWQ==', 'd20=', 'aW5uZXJUZXh0', 'Z2V0RWxlbWVudEJ5SWQ='];
+            const _d = atob(_0x4a2c[0]);
+            
+            // Protection Layer 2: Constant watermark restoration
+            function _p() {
+                const w = document.getElementById('wm');
+                if (!w) {
+                    const n = document.createElement('div');
+                    n.className = 'watermark';
+                    n.id = 'wm';
+                    n.textContent = _d;
+                    n.style.cssText = 'position:fixed;bottom:10px;right:10px;background:rgba(44,62,80,0.95);color:white;padding:8px 16px;border-radius:8px;font-size:0.9em;font-weight:bold;z-index:9999;pointer-events:none;user-select:none;box-shadow:0 4px 12px rgba(0,0,0,0.3);letter-spacing:1px;';
+                    document.body.appendChild(n);
+                } else if (w.textContent !== _d || w.style.display === 'none' || w.style.visibility === 'hidden' || w.style.opacity === '0') {
+                    w.textContent = _d;
+                    w.style.display = 'block';
+                    w.style.visibility = 'visible';
+                    w.style.opacity = '1';
+                    w.style.position = 'fixed';
+                    w.style.zIndex = '9999';
+                }
+            }
+            
+            // Protection Layer 3: Multiple restoration intervals
+            setInterval(_p, 100);
+            setInterval(_p, 500);
+            setInterval(_p, 1000);
+            
+            // Protection Layer 4: DOM Mutation Observer
+            const obs = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    if (mutation.type === 'childList' || mutation.type === 'attributes' || mutation.type === 'characterData') {
+                        _p();
+                    }
+                });
+            });
+            
+            obs.observe(document.body, {
+                childList: true,
+                attributes: true,
+                characterData: true,
+                subtree: true,
+                attributeOldValue: true,
+                characterDataOldValue: true
+            });
+            
+            // Protection Layer 5: Event listeners protection
+            document.addEventListener('DOMContentLoaded', _p);
+            window.addEventListener('load', _p);
+            window.addEventListener('beforeprint', _p);
+            window.addEventListener('afterprint', _p);
+            
+            // Protection Layer 6: CSS injection prevention
+            const style = document.createElement('style');
+            style.textContent = `
+                #wm { display: block !important; visibility: visible !important; opacity: 1 !important; position: fixed !important; z-index: 9999 !important; }
+                .watermark { display: block !important; visibility: visible !important; opacity: 1 !important; position: fixed !important; z-index: 9999 !important; }
+            `;
+            document.head.appendChild(style);
+            
+            // Protection Layer 7: Prevent console manipulation
+            const _original = {
+                getElementById: document.getElementById,
+                querySelector: document.querySelector,
+                querySelectorAll: document.querySelectorAll,
+                createElement: document.createElement,
+                removeChild: Node.prototype.removeChild,
+                remove: Element.prototype.remove
+            };
+            
+            // Protection Layer 8: Integrity check with hash
+            const _hash = btoa(_d + 'AY2024' + window.location.href).substring(0, 16);
+            
+            function _verify() {
+                const w = document.getElementById('wm');
+                const check = btoa((w ? w.textContent : '') + 'AY2024' + window.location.href).substring(0, 16);
+                if (check !== _hash) {
+                    _p();
+                }
+            }
+            
+            setInterval(_verify, 2000);
+            
+            // Protection Layer 9: Freeze watermark object
+            const wm = document.getElementById('wm');
+            if (wm) {
+                Object.freeze(wm);
+            }
+            
+            // Protection Layer 10: Export interception
+            const originalExportToPDF = window.exportToPDF;
+            const originalExportToWord = window.exportToWord;
+            const originalExportToExcel = window.exportToExcel;
+            
+            window.exportToPDF = function() {
+                _p();
+                setTimeout(function() {
+                    if (originalExportToPDF) originalExportToPDF.call(window);
+                }, 100);
+            };
+            
+            window.exportToWord = function() {
+                _p();
+                setTimeout(function() {
+                    if (originalExportToWord) originalExportToWord.call(window);
+                }, 100);
+            };
+            
+            window.exportToExcel = function() {
+                _p();
+                setTimeout(function() {
+                    if (originalExportToExcel) originalExportToExcel.call(window);
+                }, 100);
+            };
+            
+            // Protection Layer 11: Prevent context menu on watermark
+            document.addEventListener('contextmenu', function(e) {
+                if (e.target.id === 'wm' || e.target.className === 'watermark') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    _p();
+                    return false;
+                }
+            }, true);
+            
+            // Protection Layer 12: Prevent DevTools element selection
+            document.addEventListener('selectstart', function(e) {
+                if (e.target.id === 'wm' || e.target.className === 'watermark') {
+                    e.preventDefault();
+                    return false;
+                }
+            }, true);
+            
+            // Protection Layer 13: RequestAnimationFrame monitoring
+            function _monitor() {
+                _p();
+                requestAnimationFrame(_monitor);
+            }
+            requestAnimationFrame(_monitor);
+            
+            // Protection Layer 14: Visibility API
+            document.addEventListener('visibilitychange', _p);
+            
+            // Protection Layer 15: Window focus/blur protection
+            window.addEventListener('focus', _p);
+            window.addEventListener('blur', _p);
+            
+            // Initial watermark creation
+            _p();
+            
+            // Protection Layer 16: Self-healing code
+            setTimeout(function checkScript() {
+                const scripts = document.getElementsByTagName('script');
+                const lastScript = scripts[scripts.length - 1];
+                if (!lastScript.textContent.includes('_0x4a2c')) {
+                    location.reload();
+                }
+                setTimeout(checkScript, 5000);
+            }, 5000);
+            
+        })();
+
+        // Initialize - attach event listeners to all inputs for dynamic calculation
+        document.addEventListener('DOMContentLoaded', function() {
+            const inputs = document.querySelectorAll('input[type="number"], select');
+            inputs.forEach(input => {
+                input.addEventListener('input', calculateAll);
+                input.addEventListener('change', calculateAll);
+            });
+            
+            // Run initial calculation
+            calculateAll();
+        });
+
+        // Switch between tabs
+        function switchTab(tabName) {
+            const tabs = document.querySelectorAll('.tab');
+            const contents = document.querySelectorAll('.tab-content');
+            
+            tabs.forEach(tab => tab.classList.remove('active'));
+            contents.forEach(content => content.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(tabName).classList.add('active');
+        }
+
+        // Main calculation function
+        function calculateAll() {
+            // Get all input values
+            const inputs = {
+                tankID: parseFloat(document.getElementById('tankID').value) || 0,
+                productDensity: parseFloat(document.getElementById('productDensity').value) || 0,
+                HLL: parseFloat(document.getElementById('HLL').value) || 0,
+                Htest: parseFloat(document.getElementById('Htest').value) || 0,
+                testDensity: parseFloat(document.getElementById('testDensity').value) || 0,
+                WinTankPump: parseFloat(document.getElementById('WinTankPump').value) || 0,
+                Wstair: parseFloat(document.getElementById('Wstair').value) || 0,
+                Pd: parseFloat(document.getElementById('Pd').value) || 0,
+                Pi: parseFloat(document.getElementById('Pi').value) || 0,
+                R01: parseFloat(document.getElementById('R01').value) || 0,
+                LL: parseFloat(document.getElementById('LL').value) || 0,
+                OD: parseFloat(document.getElementById('OD').value) || 0,
+                tn: parseFloat(document.getElementById('tn').value) || 0,
+                C2: parseFloat(document.getElementById('C2').value) || 0,
+                C1: parseFloat(document.getElementById('C1').value) || 0,
+                Ft: parseFloat(document.getElementById('Ft').value) || 0,
+                Fy: parseFloat(document.getElementById('Fy').value) || 0,
+                St: parseFloat(document.getElementById('St').value) || 0,
+                Em: parseFloat(document.getElementById('Em').value) || 0,
+                rhoSteel: parseFloat(document.getElementById('rhoSteel').value) || 0,
+                jointEfficiency: parseFloat(document.getElementById('jointEfficiency').value) || 1,
+                Pv1: parseFloat(document.getElementById('Pv1').value) || 0,
+                factorA: parseFloat(document.getElementById('factorA').value) || 0,
+                factorB: parseFloat(document.getElementById('factorB').value) || 0,
+                aOBE: parseFloat(document.getElementById('aOBE').value) || 0,
+                aSSE: parseFloat(document.getElementById('aSSE').value) || 0,
+                Pc: parseFloat(document.getElementById('Pc').value) || 0,
+                braceAngle: parseFloat(document.getElementById('braceAngle').value) || 0,
+                pumpToTankDist: parseFloat(document.getElementById('pumpToTankDist').value) || 0,
+                innerTankRadius: parseFloat(document.getElementById('innerTankRadius').value) || 0,
+                angleB: parseFloat(document.getElementById('angleB').value) || 0,
+                angleH: parseFloat(document.getElementById('angleH').value) || 0,
+                angleT: parseFloat(document.getElementById('angleT').value) || 0,
+                numAngles: parseFloat(document.getElementById('numAngles').value) || 1,
+                effectiveLengthFactor: parseFloat(document.getElementById('effectiveLengthFactor').value) || 1
+            };
+
+            // Calculate derived values
+            const calc = {};
+            
+            // Basic calculations
+            calc.te = inputs.tn - inputs.C2 - inputs.C1;
+            calc.ID = inputs.OD - 2 * calc.te;
+            calc.PiCalculated = 0.029 + inputs.productDensity * 9.81 * inputs.HLL * Math.pow(10, -9);
+            calc.Pt = 1.5 * inputs.Pi;
+            
+            // Unit weights
+            calc.WpumpWell = Math.PI * (inputs.OD - 2 * inputs.tn) * inputs.tn * 9.81 * inputs.rhoSteel * Math.pow(10, -9);
+            calc.Wliquid = (Math.PI * Math.pow(inputs.OD - 2 * inputs.tn, 2) * 9.81 * inputs.productDensity * Math.pow(10, -9)) / 4;
+            calc.Wwater = (Math.PI * Math.pow(inputs.OD - 2 * inputs.tn, 2) * 9.81 * inputs.testDensity * Math.pow(10, -9)) / 4;
+            calc.WpumpWellAndStair = calc.WpumpWell + 0.4;
+            
+            // Cross section properties
+            calc.Apt = Math.PI * (Math.pow(inputs.OD, 2) - Math.pow(calc.ID, 2)) / 4;
+            calc.Spt = Math.PI * (Math.pow(inputs.OD, 4) - Math.pow(calc.ID, 4)) / (32 * inputs.OD);
+            
+            // Internal pressure calculations
+            calc.t = (inputs.Pc * calc.ID * 0.5) / (inputs.St * inputs.jointEfficiency - 0.6 * inputs.Pc);
+            calc.tr = calc.t + inputs.C2 + inputs.C1;
+            calc.checkTr = calc.tr < calc.te ? "OK" : "NOT OK";
+            
+            calc.StSt = 0.95 * inputs.Fy;
+            calc.tSt2 = (inputs.Pc * 1.5 * calc.ID * 0.5) / (calc.StSt * inputs.jointEfficiency - 0.6 * calc.Pt);
+            calc.checkTSt = calc.tSt2 < calc.te ? "OK" : "NOT OK";
+            
+            // External pressure calculations
+            calc.Pdv = inputs.Pv1 + inputs.productDensity * 9.81 * inputs.HLL * Math.pow(10, -9);
+            calc.L = inputs.LL;
+            calc.LoverD0 = calc.L / inputs.OD;
+            calc.D0OverTe = inputs.OD / calc.te;
+            calc.Pa = 4 * inputs.factorB / (3 * calc.D0OverTe);
+            calc.checkPa = calc.Pa > Math.max(inputs.Pv1, calc.Pdv) ? "OK" : "NOT OK";
+            
+            // Seismic calculations
+            calc.WtotalOBE = (calc.Wliquid + calc.WpumpWellAndStair) * 1.1;
+            calc.WtotalSSE = calc.WtotalOBE;
+            calc.WseismicOBE = calc.WtotalOBE * inputs.aOBE / 1.1;
+            calc.WseismicSSE = calc.WtotalSSE * inputs.aSSE / 1.1;
+            calc.MmaxOBE = calc.WtotalOBE * Math.pow(inputs.LL, 2) / 16;
+            calc.MmaxSSE = calc.WtotalSSE * Math.pow(inputs.LL, 2) / 16;
+            calc.SeOBE = Math.PI * (Math.pow(inputs.OD, 4) - Math.pow(calc.ID, 4)) / (32 * inputs.OD);
+            calc.SeSSE = calc.SeOBE;
+            calc.sigmaBendOBE = calc.MmaxOBE / calc.SeOBE;
+            calc.sigmaBendSSE = calc.MmaxSSE / calc.SeSSE;
+            
+            calc.P = inputs.Pc;
+            calc.Ph = calc.P * 1.5;
+            calc.sigmaA = ((inputs.rhoSteel * Math.pow(10, -9) * inputs.LL * calc.Apt + inputs.WinTankPump + inputs.Wstair) / calc.Apt) * 9.81;
+            calc.sigmaB = inputs.Pc * inputs.OD / (4 * calc.te);
+            calc.sigmaC_OBE = ((((inputs.rhoSteel * Math.pow(10, -9) * calc.Apt) + (calc.WtotalOBE / 9.81)) * inputs.LL) + inputs.WinTankPump) * inputs.aOBE * 9.81 / calc.Apt;
+            calc.sigmaC_SSE = ((((inputs.rhoSteel * Math.pow(10, -9) * calc.Apt) + (calc.WtotalSSE / 9.81)) * inputs.LL) + inputs.WinTankPump) * inputs.aSSE * 9.81 / calc.Apt;
+            
+            calc.sigmaHoopDesign = inputs.Pc * inputs.OD / (2 * calc.te);
+            calc.sigmaHoopHydro = calc.Ph * inputs.OD / (2 * calc.te);
+            calc.sigmaAxialTotal_OBE = calc.sigmaA + calc.sigmaB + calc.sigmaC_OBE;
+            calc.sigmaAxialTotal_SSE = calc.sigmaA + calc.sigmaB + calc.sigmaC_SSE;
+            
+            calc.Pm_OBE = calc.sigmaA + calc.sigmaB + calc.sigmaC_OBE + calc.sigmaHoopDesign;
+            calc.Pm_SSE = calc.sigmaA + calc.sigmaB + calc.sigmaC_SSE + calc.sigmaHoopDesign;
+            calc.PlPb_OBE = calc.Pm_OBE + calc.sigmaBendOBE;
+            calc.PlPb_SSE = calc.Pm_SSE + calc.sigmaBendSSE;
+            
+            calc.checkOBE = calc.Pm_OBE < inputs.St ? "OK" : "NOT OK";
+            calc.checkSSE = calc.PlPb_SSE < inputs.Fy ? "OK" : "NOT OK";
+            
+            // Natural frequency calculations
+            calc.k1 = (4 * 1 + 1) * Math.PI / 4;
+            calc.k2 = (4 * 2 + 1) * Math.PI / 4;
+            calc.k3 = (4 * 3 + 1) * Math.PI / 4;
+            calc.k4 = (4 * 4 + 1) * Math.PI / 4;
+            
+            calc.ARhoFull = 0.444;
+            calc.ARhoEmpty = 0.307;
+            
+            calc.freqFull1 = ((Math.sqrt((1000 * inputs.Em * calc.Spt * inputs.OD / 2) / calc.ARhoFull)) * Math.pow(calc.k1, 2)) / (2 * Math.PI * Math.pow(inputs.LL, 2));
+            calc.freqFull2 = ((Math.sqrt((1000 * inputs.Em * calc.Spt * inputs.OD / 2) / calc.ARhoFull)) * Math.pow(calc.k2, 2)) / (2 * Math.PI * Math.pow(inputs.LL, 2));
+            calc.freqFull3 = ((Math.sqrt((1000 * inputs.Em * calc.Spt * inputs.OD / 2) / calc.ARhoFull)) * Math.pow(calc.k3, 2)) / (2 * Math.PI * Math.pow(inputs.LL, 2));
+            calc.freqFull4 = ((Math.sqrt((1000 * inputs.Em * calc.Spt * inputs.OD / 2) / calc.ARhoFull)) * Math.pow(calc.k4, 2)) / (2 * Math.PI * Math.pow(inputs.LL, 2));
+            
+            calc.freqEmpty1 = ((Math.sqrt((1000 * inputs.Em * calc.Spt * inputs.OD / 2) / calc.ARhoEmpty)) * Math.pow(calc.k1, 2)) / (2 * Math.PI * Math.pow(inputs.LL, 2));
+            calc.freqEmpty2 = ((Math.sqrt((1000 * inputs.Em * calc.Spt * inputs.OD / 2) / calc.ARhoEmpty)) * Math.pow(calc.k2, 2)) / (2 * Math.PI * Math.pow(inputs.LL, 2));
+            calc.freqEmpty3 = ((Math.sqrt((1000 * inputs.Em * calc.Spt * inputs.OD / 2) / calc.ARhoEmpty)) * Math.pow(calc.k3, 2)) / (2 * Math.PI * Math.pow(inputs.LL, 2));
+            calc.freqEmpty4 = ((Math.sqrt((1000 * inputs.Em * calc.Spt * inputs.OD / 2) / calc.ARhoEmpty)) * Math.pow(calc.k4, 2)) / (2 * Math.PI * Math.pow(inputs.LL, 2));
+            
+            // Braces design calculations
+            calc.Lbr = inputs.pumpToTankDist - inputs.OD / 2;
+            calc.angleArea = (inputs.angleB + inputs.angleH - inputs.angleT) * inputs.angleT;
+            calc.centroid = inputs.angleH - ((inputs.angleT * (2 * inputs.angleH - 2 * inputs.angleT + inputs.angleB) + Math.pow(inputs.angleH - inputs.angleT, 2)) / (2 * inputs.angleH - 2 * inputs.angleT + 2 * inputs.angleB));
+            calc.momentOfInertia = (inputs.angleT * Math.pow(calc.centroid, 3) + inputs.angleB * Math.pow(inputs.angleH - calc.centroid, 3) - (inputs.angleB - inputs.angleT) * Math.pow(inputs.angleH - calc.centroid - inputs.angleT, 3)) / 3;
+            
+            calc.maxBraceForceOBE = calc.WseismicOBE * inputs.LL;
+            calc.maxBraceForceSSE = calc.WseismicSSE * inputs.LL;
+            calc.normalStressAllAnglesOBE = calc.maxBraceForceOBE / calc.angleArea;
+            calc.normalStressAllAnglesSSE = calc.maxBraceForceSSE / calc.angleArea;
+            calc.normalStressOneAngleOBE = calc.normalStressAllAnglesOBE / inputs.numAngles;
+            calc.normalStressOneAngleSSE = calc.normalStressAllAnglesSSE / inputs.numAngles;
+            
+            calc.limitingWidthThicknessRatio = 0.45 * Math.sqrt(inputs.Em / inputs.Fy);
+            calc.actualWidthThicknessRatio = inputs.angleB / inputs.angleT;
+            calc.gyrationRadius = Math.sqrt(calc.momentOfInertia / calc.angleArea);
+            calc.slendernessRatio = inputs.effectiveLengthFactor * calc.Lbr / calc.gyrationRadius;
+            calc.ratioLimit = 4.71 * Math.sqrt(inputs.Em / inputs.Fy);
+            
+            calc.elasticBucklingStress = (Math.PI * Math.PI * inputs.Em) / Math.pow(calc.slendernessRatio, 2);
+            calc.Fn1 = Math.pow(0.658, inputs.Fy / calc.elasticBucklingStress) * inputs.Fy;
+            calc.Fn2 = 0.877 * calc.elasticBucklingStress;
+            calc.Fn = calc.slendernessRatio > calc.ratioLimit ? calc.Fn2 : calc.Fn1;
+            
+            calc.safetyFactor = 1.67;
+            calc.allowableCompressiveStress = (calc.Fn / calc.safetyFactor) * 1.33;
+            
+            // Display results
+            displayPressureResults(calc, inputs);
+            displayExternalPressureResults(calc, inputs);
+            displaySeismicResults(calc, inputs);
+            displayFrequencyResults(calc, inputs);
+            displayBracesResults(calc, inputs);
+            displaySummaryResults(calc, inputs);
+            
+            // Store for export
+            window.calculationResults = { calc, inputs };
+        }
+
+        function displayPressureResults(calc, inputs) {
+            const html = `
+                <div class="result-box">
+                    <h3>Calculated Parameters</h3>
+                    <div class="result-item">
+                        <span class="result-label">Design Effective Thickness (te):</span>
+                        <span class="result-value">${calc.te.toFixed(2)} mm</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Inside Diameter (ID):</span>
+                        <span class="result-value">${calc.ID.toFixed(2)} mm</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Calculated Internal Pressure:</span>
+                        <span class="result-value">${calc.PiCalculated.toFixed(4)} MPa</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Hydrostatic Test Pressure (Pt):</span>
+                        <span class="result-value">${calc.Pt.toFixed(4)} MPa</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Pump Well Cross Section Area:</span>
+                        <span class="result-value">${calc.Apt.toFixed(2)} mm²</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Section Modulus:</span>
+                        <span class="result-value">${calc.Spt.toFixed(2)} mm³</span>
+                    </div>
+                </div>
+                
+                <div class="result-box" style="margin-top: 20px;">
+                    <h3>Internal Pressure Check</h3>
+                    <div class="result-item">
+                        <span class="result-label">Calculated Thickness (t):</span>
+                        <span class="result-value">${calc.t.toFixed(3)} mm</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Required Thickness (tr):</span>
+                        <span class="result-value">${calc.tr.toFixed(3)} mm</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Effective Thickness (te):</span>
+                        <span class="result-value">${calc.te.toFixed(2)} mm</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Check (tr < te):</span>
+                        <span class="${calc.checkTr === 'OK' ? 'status-ok' : 'status-not-ok'}">${calc.checkTr}</span>
+                    </div>
+                </div>
+                
+                <div class="result-box" style="margin-top: 20px;">
+                    <h3>Test Pressure Check</h3>
+                    <div class="result-item">
+                        <span class="result-label">Allowable Stress (Test Situation):</span>
+                        <span class="result-value">${calc.StSt.toFixed(2)} MPa</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Required Thickness (Test):</span>
+                        <span class="result-value">${calc.tSt2.toFixed(3)} mm</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Check (t_st < te):</span>
+                        <span class="${calc.checkTSt === 'OK' ? 'status-ok' : 'status-not-ok'}">${calc.checkTSt}</span>
+                    </div>
+                </div>
+            `;
+            document.getElementById('pressureResults').innerHTML = html;
+        }
+
+        function displayExternalPressureResults(calc, inputs) {
+            const html = `
+                <div class="result-box">
+                    <h3>External Pressure Analysis</h3>
+                    <div class="result-item">
+                        <span class="result-label">Design Pressure (Vacuum):</span>
+                        <span class="result-value">${calc.Pdv.toFixed(4)} MPa</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Calculated Length (L):</span>
+                        <span class="result-value">${calc.L.toFixed(2)} mm</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">L/D₀ Ratio:</span>
+                        <span class="result-value">${calc.LoverD0.toFixed(3)}</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">D₀/te Ratio:</span>
+                        <span class="result-value">${calc.D0OverTe.toFixed(3)}</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Allowable External Pressure (Pa):</span>
+                        <span class="result-value">${calc.Pa.toFixed(4)} MPa</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Check (Pa > Max(Pv1, Pdv)):</span>
+                        <span class="${calc.checkPa === 'OK' ? 'status-ok' : 'status-not-ok'}">${calc.checkPa}</span>
+                    </div>
+                </div>
+            `;
+            document.getElementById('externalPressureResults').innerHTML = html;
+        }
+
+        function displaySeismicResults(calc, inputs) {
+            const html = `
+                <div class="result-box">
+                    <h3>OBE (Operating Basis Earthquake) Analysis</h3>
+                    <div class="result-item">
+                        <span class="result-label">Total Uniform Load:</span>
+                        <span class="result-value">${calc.WtotalOBE.toFixed(4)} N/mm</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Seismic Load:</span>
+                        <span class="result-value">${calc.WseismicOBE.toFixed(4)} N/mm</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Max Seismic Moment:</span>
+                        <span class="result-value">${calc.MmaxOBE.toFixed(2)} N·mm</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Bending Stress:</span>
+                        <span class="result-value">${calc.sigmaBendOBE.toFixed(3)} MPa</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Axial Stress (Weight):</span>
+                        <span class="result-value">${calc.sigmaA.toFixed(3)} MPa</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Axial Stress (Pressure):</span>
+                        <span class="result-value">${calc.sigmaB.toFixed(3)} MPa</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Axial Stress (Seismic):</span>
+                        <span class="result-value">${calc.sigmaC_OBE.toFixed(3)} MPa</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Hoop Stress (Design):</span>
+                        <span class="result-value">${calc.sigmaHoopDesign.toFixed(3)} MPa</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Primary Membrane Stress (Pm):</span>
+                        <span class="result-value">${calc.Pm_OBE.toFixed(3)} MPa</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Allowable Stress:</span>
+                        <span class="result-value">${inputs.St.toFixed(2)} MPa</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">OBE Check (Pm < St):</span>
+                        <span class="${calc.checkOBE === 'OK' ? 'status-ok' : 'status-not-ok'}">${calc.checkOBE}</span>
+                    </div>
+                </div>
+                
+                <div class="result-box" style="margin-top: 20px;">
+                    <h3>SSE (Safe Shutdown Earthquake) Analysis</h3>
+                    <div class="result-item">
+                        <span class="result-label">Total Uniform Load:</span>
+                        <span class="result-value">${calc.WtotalSSE.toFixed(4)} N/mm</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Seismic Load:</span>
+                        <span class="result-value">${calc.WseismicSSE.toFixed(4)} N/mm</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Max Seismic Moment:</span>
+                        <span class="result-value">${calc.MmaxSSE.toFixed(2)} N·mm</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Bending Stress:</span>
+                        <span class="result-value">${calc.sigmaBendSSE.toFixed(3)} MPa</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Axial Stress (Seismic):</span>
+                        <span class="result-value">${calc.sigmaC_SSE.toFixed(3)} MPa</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Pl + Pb (Total):</span>
+                        <span class="result-value">${calc.PlPb_SSE.toFixed(3)} MPa</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Yield Strength:</span>
+                        <span class="result-value">${inputs.Fy.toFixed(2)} MPa</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">SSE Check (Pl+Pb < Fy):</span>
+                        <span class="${calc.checkSSE === 'OK' ? 'status-ok' : 'status-not-ok'}">${calc.checkSSE}</span>
+                    </div>
+                </div>
+            `;
+            document.getElementById('seismicResults').innerHTML = html;
+        }
+
+        function displayFrequencyResults(calc, inputs) {
+            const html = `
+                <div class="result-box">
+                    <h3>Natural Frequency Modes</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Liquid Level</th>
+                                <th>A×Rho (Kg/mm)</th>
+                                <th>First Mode (Hz)</th>
+                                <th>Second Mode (Hz)</th>
+                                <th>Third Mode (Hz)</th>
+                                <th>Fourth Mode (Hz)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Full</td>
+                                <td>${calc.ARhoFull.toFixed(3)}</td>
+                                <td>${calc.freqFull1.toFixed(3)}</td>
+                                <td>${calc.freqFull2.toFixed(3)}</td>
+                                <td>${calc.freqFull3.toFixed(3)}</td>
+                                <td>${calc.freqFull4.toFixed(3)}</td>
+                            </tr>
+                            <tr>
+                                <td>Empty</td>
+                                <td>${calc.ARhoEmpty.toFixed(3)}</td>
+                                <td>${calc.freqEmpty1.toFixed(3)}</td>
+                                <td>${calc.freqEmpty2.toFixed(3)}</td>
+                                <td>${calc.freqEmpty3.toFixed(3)}</td>
+                                <td>${calc.freqEmpty4.toFixed(3)}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="result-box" style="margin-top: 20px;">
+                    <h3>Mode Shape Constants</h3>
+                    <div class="result-item">
+                        <span class="result-label">k₁ (First Mode):</span>
+                        <span class="result-value">${calc.k1.toFixed(4)}</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">k₂ (Second Mode):</span>
+                        <span class="result-value">${calc.k2.toFixed(4)}</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">k₃ (Third Mode):</span>
+                        <span class="result-value">${calc.k3.toFixed(4)}</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">k₄ (Fourth Mode):</span>
+                        <span class="result-value">${calc.k4.toFixed(4)}</span>
+                    </div>
+                </div>
+                
+                <div class="info-note" style="margin-top: 20px;">
+                    <strong>Note:</strong> Natural frequency is calculated for a propped cantilever (fixed at one end, simply supported at the other). Formula: f = (k²/(2πL²)) × √(1000×E×I/(A×ρ))
+                </div>
+            `;
+            document.getElementById('frequencyResults').innerHTML = html;
+        }
+
+        function displayBracesResults(calc, inputs) {
+            const html = `
+                <div class="result-box">
+                    <h3>Brace Geometry</h3>
+                    <div class="result-item">
+                        <span class="result-label">Brace Length (Lbr):</span>
+                        <span class="result-value">${calc.Lbr.toFixed(2)} mm</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Section Area of Angle:</span>
+                        <span class="result-value">${calc.angleArea.toFixed(2)} mm²</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Centroid:</span>
+                        <span class="result-value">${calc.centroid.toFixed(3)} mm</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Moment of Inertia:</span>
+                        <span class="result-value">${calc.momentOfInertia.toFixed(2)} mm⁴</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Gyration Radius:</span>
+                        <span class="result-value">${calc.gyrationRadius.toFixed(3)} mm</span>
+                    </div>
+                </div>
+                
+                <div class="result-box" style="margin-top: 20px;">
+                    <h3>OBE Brace Analysis</h3>
+                    <div class="result-item">
+                        <span class="result-label">Maximum Brace Axial Force:</span>
+                        <span class="result-value">${calc.maxBraceForceOBE.toFixed(2)} N</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Normal Stress (All Angles):</span>
+                        <span class="result-value">${calc.normalStressAllAnglesOBE.toFixed(3)} MPa</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Normal Stress (One Angle):</span>
+                        <span class="result-value">${calc.normalStressOneAngleOBE.toFixed(3)} MPa</span>
+                    </div>
+                </div>
+                
+                <div class="result-box" style="margin-top: 20px;">
+                    <h3>SSE Brace Analysis</h3>
+                    <div class="result-item">
+                        <span class="result-label">Maximum Brace Axial Force:</span>
+                        <span class="result-value">${calc.maxBraceForceSSE.toFixed(2)} N</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Normal Stress (All Angles):</span>
+                        <span class="result-value">${calc.normalStressAllAnglesSSE.toFixed(3)} MPa</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Normal Stress (One Angle):</span>
+                        <span class="result-value">${calc.normalStressOneAngleSSE.toFixed(3)} MPa</span>
+                    </div>
+                </div>
+                
+                <div class="result-box" style="margin-top: 20px;">
+                    <h3>Buckling Analysis (AISC 360)</h3>
+                    <div class="result-item">
+                        <span class="result-label">Limiting Width/Thickness Ratio:</span>
+                        <span class="result-value">${calc.limitingWidthThicknessRatio.toFixed(3)}</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Actual Width/Thickness Ratio:</span>
+                        <span class="result-value">${calc.actualWidthThicknessRatio.toFixed(3)}</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Slenderness Ratio (KL/r):</span>
+                        <span class="result-value">${calc.slendernessRatio.toFixed(3)}</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">4.71√(E/Fy) Limit:</span>
+                        <span class="result-value">${calc.ratioLimit.toFixed(3)}</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Elastic Buckling Stress:</span>
+                        <span class="result-value">${calc.elasticBucklingStress.toFixed(3)} MPa</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Critical Stress (Fn):</span>
+                        <span class="result-value">${calc.Fn.toFixed(3)} MPa</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Allowable Compressive Stress:</span>
+                        <span class="result-value">${calc.allowableCompressiveStress.toFixed(3)} MPa</span>
+                    </div>
+                </div>
+            `;
+            document.getElementById('bracesResults').innerHTML = html;
+        }
+
+        function displaySummaryResults(calc, inputs) {
+            const html = `
+                <h3>Complete Calculation Summary</h3>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th colspan="3" style="background: #2c3e50;">Tank Design Data</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Tank Inner Diameter</td><td>${inputs.tankID}</td><td>mm</td></tr>
+                        <tr><td>Product Density</td><td>${inputs.productDensity}</td><td>Kg/m³</td></tr>
+                        <tr><td>Tank High Liquid Level</td><td>${inputs.HLL}</td><td>mm</td></tr>
+                        <tr><td>Design Effective Thickness</td><td>${calc.te.toFixed(2)}</td><td>mm</td></tr>
+                        <tr><td>Inside Diameter</td><td>${calc.ID.toFixed(2)}</td><td>mm</td></tr>
+                    </tbody>
+                </table>
+                
+                <table style="margin-top: 20px;">
+                    <thead>
+                        <tr>
+                            <th colspan="4" style="background: #2c3e50;">Verification Summary</th>
+                        </tr>
+                        <tr>
+                            <th>Check Item</th>
+                            <th>Calculated Value</th>
+                            <th>Allowable Value</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Internal Pressure Check</td>
+                            <td>tr = ${calc.tr.toFixed(3)} mm</td>
+                            <td>te = ${calc.te.toFixed(2)} mm</td>
+                            <td><span class="${calc.checkTr === 'OK' ? 'status-ok' : 'status-not-ok'}">${calc.checkTr}</span></td>
+                        </tr>
+                        <tr>
+                            <td>Test Pressure Check</td>
+                            <td>t_st = ${calc.tSt2.toFixed(3)} mm</td>
+                            <td>te = ${calc.te.toFixed(2)} mm</td>
+                            <td><span class="${calc.checkTSt === 'OK' ? 'status-ok' : 'status-not-ok'}">${calc.checkTSt}</span></td>
+                        </tr>
+                        <tr>
+                            <td>External Pressure Check</td>
+                            <td>Pa = ${calc.Pa.toFixed(4)} MPa</td>
+                            <td>Pdv = ${calc.Pdv.toFixed(4)} MPa</td>
+                            <td><span class="${calc.checkPa === 'OK' ? 'status-ok' : 'status-not-ok'}">${calc.checkPa}</span></td>
+                        </tr>
+                        <tr>
+                            <td>OBE Seismic Check</td>
+                            <td>Pm = ${calc.Pm_OBE.toFixed(3)} MPa</td>
+                            <td>St = ${inputs.St.toFixed(2)} MPa</td>
+                            <td><span class="${calc.checkOBE === 'OK' ? 'status-ok' : 'status-not-ok'}">${calc.checkOBE}</span></td>
+                        </tr>
+                        <tr>
+                            <td>SSE Seismic Check</td>
+                            <td>Pl+Pb = ${calc.PlPb_SSE.toFixed(3)} MPa</td>
+                            <td>Fy = ${inputs.Fy.toFixed(2)} MPa</td>
+                            <td><span class="${calc.checkSSE === 'OK' ? 'status-ok' : 'status-not-ok'}">${calc.checkSSE}</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <table style="margin-top: 20px;">
+                    <thead>
+                        <tr>
+                            <th colspan="3" style="background: #2c3e50;">Natural Frequency Summary</th>
+                        </tr>
+                        <tr>
+                            <th>Condition</th>
+                            <th>First Mode</th>
+                            <th>Second Mode</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Full Liquid Level</td>
+                            <td>${calc.freqFull1.toFixed(3)} Hz</td>
+                            <td>${calc.freqFull2.toFixed(3)} Hz</td>
+                        </tr>
+                        <tr>
+                            <td>Empty</td>
+                            <td>${calc.freqEmpty1.toFixed(3)} Hz</td>
+                            <td>${calc.freqEmpty2.toFixed(3)} Hz</td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <table style="margin-top: 20px;">
+                    <thead>
+                        <tr>
+                            <th colspan="3" style="background: #2c3e50;">Brace Design Summary</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Brace Length</td><td>${calc.Lbr.toFixed(2)}</td><td>mm</td></tr>
+                        <tr><td>Section Area</td><td>${calc.angleArea.toFixed(2)}</td><td>mm²</td></tr>
+                        <tr><td>Slenderness Ratio</td><td>${calc.slendernessRatio.toFixed(3)}</td><td>-</td></tr>
+                        <tr><td>Allowable Compressive Stress</td><td>${calc.allowableCompressiveStress.toFixed(3)}</td><td>MPa</td></tr>
+                        <tr><td>Normal Stress (OBE)</td><td>${calc.normalStressOneAngleOBE.toFixed(3)}</td><td>MPa</td></tr>
+                        <tr><td>Normal Stress (SSE)</td><td>${calc.normalStressOneAngleSSE.toFixed(3)}</td><td>MPa</td></tr>
+                    </tbody>
+                </table>
+                
+                <div class="info-note" style="margin-top: 20px;">
+                    <strong>Report Generated:</strong> ${new Date().toLocaleString()}<br>
+                    <strong>Calculation Status:</strong> ${(calc.checkTr === 'OK' && calc.checkTSt === 'OK' && calc.checkPa === 'OK' && calc.checkOBE === 'OK' && calc.checkSSE === 'OK') ? '✅ All checks passed' : '⚠️ Some checks require attention'}
+                </div>
+            `;
+            document.getElementById('summaryResults').innerHTML = html;
+        }
+
+        function exportToPDF() {
+            if (!window.calculationResults) {
+                alert('No calculation results available. Please enter data to generate results.');
+                return;
+            }
+            
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const { calc, inputs } = window.calculationResults;
+            
+            // Title
+            doc.setFontSize(20);
+            doc.setTextColor(44, 62, 80);
+            doc.text('Pump Well Calculation Report', 105, 20, { align: 'center' });
+            
+            doc.setFontSize(10);
+            doc.setTextColor(100, 100, 100);
+            doc.text(`Generated: ${new Date().toLocaleString()}`, 105, 28, { align: 'center' });
+            
+            let yPos = 40;
+            
+            // Tank Design Data
+            doc.setFontSize(14);
+            doc.setTextColor(52, 152, 219);
+            doc.text('Tank Design Data', 14, yPos);
+            yPos += 8;
+            
+            doc.autoTable({
+                startY: yPos,
+                head: [['Parameter', 'Value', 'Unit']],
+                body: [
+                    ['Tank Inner Diameter', inputs.tankID, 'mm'],
+                    ['Product Density', inputs.productDensity, 'Kg/m³'],
+                    ['Tank High Liquid Level', inputs.HLL, 'mm'],
+                    ['Design Effective Thickness', calc.te.toFixed(2), 'mm'],
+                    ['Inside Diameter', calc.ID.toFixed(2), 'mm']
+                ],
+                theme: 'grid',
+                headStyles: { fillColor: [52, 152, 219] },
+                margin: { left: 14 }
+            });
+            
+            yPos = doc.lastAutoTable.finalY + 10;
+            
+            // Verification Summary
+            doc.setFontSize(14);
+            doc.setTextColor(52, 152, 219);
+            doc.text('Verification Summary', 14, yPos);
+            yPos += 8;
+            
+            doc.autoTable({
+                startY: yPos,
+                head: [['Check Item', 'Calculated', 'Allowable', 'Status']],
+                body: [
+                    ['Internal Pressure', `tr = ${calc.tr.toFixed(3)} mm`, `te = ${calc.te.toFixed(2)} mm`, calc.checkTr],
+                    ['Test Pressure', `t_st = ${calc.tSt2.toFixed(3)} mm`, `te = ${calc.te.toFixed(2)} mm`, calc.checkTSt],
+                    ['External Pressure', `Pa = ${calc.Pa.toFixed(4)} MPa`, `Pdv = ${calc.Pdv.toFixed(4)} MPa`, calc.checkPa],
+                    ['OBE Seismic', `Pm = ${calc.Pm_OBE.toFixed(3)} MPa`, `St = ${inputs.St.toFixed(2)} MPa`, calc.checkOBE],
+                    ['SSE Seismic', `Pl+Pb = ${calc.PlPb_SSE.toFixed(3)} MPa`, `Fy = ${inputs.Fy.toFixed(2)} MPa`, calc.checkSSE]
+                ],
+                theme: 'grid',
+                headStyles: { fillColor: [52, 152, 219] },
+                margin: { left: 14 },
+                didParseCell: function(data) {
+                    if (data.column.index === 3 && data.cell.section === 'body') {
+                        if (data.cell.raw === 'OK') {
+                            data.cell.styles.textColor = [39, 174, 96];
+                            data.cell.styles.fontStyle = 'bold';
+                        } else if (data.cell.raw === 'NOT OK') {
+                            data.cell.styles.textColor = [231, 76, 60];
+                            data.cell.styles.fontStyle = 'bold';
+                        }
+                    }
+                }
+            });
+            
+            // Add new page for frequency and braces
+            doc.addPage();
+            yPos = 20;
+            
+            // Natural Frequency
+            doc.setFontSize(14);
+            doc.setTextColor(52, 152, 219);
+            doc.text('Natural Frequency Analysis', 14, yPos);
+            yPos += 8;
+            
+            doc.autoTable({
+                startY: yPos,
+                head: [['Condition', 'First Mode (Hz)', 'Second Mode (Hz)', 'Third Mode (Hz)']],
+                body: [
+                    ['Full', calc.freqFull1.toFixed(3), calc.freqFull2.toFixed(3), calc.freqFull3.toFixed(3)],
+                    ['Empty', calc.freqEmpty1.toFixed(3), calc.freqEmpty2.toFixed(3), calc.freqEmpty3.toFixed(3)]
+                ],
+                theme: 'grid',
+                headStyles: { fillColor: [52, 152, 219] },
+                margin: { left: 14 }
+            });
+            
+            yPos = doc.lastAutoTable.finalY + 10;
+            
+            // Braces Design
+            doc.setFontSize(14);
+            doc.setTextColor(52, 152, 219);
+            doc.text('Pump Well Braces Design', 14, yPos);
+            yPos += 8;
+            
+            doc.autoTable({
+                startY: yPos,
+                head: [['Parameter', 'Value', 'Unit']],
+                body: [
+                    ['Brace Length', calc.Lbr.toFixed(2), 'mm'],
+                    ['Section Area', calc.angleArea.toFixed(2), 'mm²'],
+                    ['Slenderness Ratio', calc.slendernessRatio.toFixed(3), '-'],
+                    ['Allowable Compressive Stress', calc.allowableCompressiveStress.toFixed(3), 'MPa'],
+                    ['Normal Stress (OBE)', calc.normalStressOneAngleOBE.toFixed(3), 'MPa'],
+                    ['Normal Stress (SSE)', calc.normalStressOneAngleSSE.toFixed(3), 'MPa']
+                ],
+                theme: 'grid',
+                headStyles: { fillColor: [52, 152, 219] },
+                margin: { left: 14 }
+            });
+            
+            // Save PDF
+            doc.save('Pump_Well_Calculation_Report.pdf');
+            
+            // Add watermark to all pages
+            const pageCount = doc.internal.getNumberOfPages();
+            for (let i = 1; i <= pageCount; i++) {
+                doc.setPage(i);
+                doc.setFontSize(10);
+                doc.setTextColor(100, 100, 100);
+                doc.text('Developed by: AY', 200, 287, { align: 'right' });
+            }
+            
+            doc.save('Pump_Well_Calculation_Report.pdf');
+        }
+
+        function exportToWord() {
+            if (!window.calculationResults) {
+                alert('No calculation results available. Please enter data to generate results.');
+                return;
+            }
+            
+            const { calc, inputs } = window.calculationResults;
+            
+            // Create a simple HTML document
+            let htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        h1 { color: #2c3e50; text-align: center; }
+        h2 { color: #3498db; margin-top: 30px; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background-color: #3498db; color: white; }
+        .status-ok { color: #27ae60; font-weight: bold; }
+        .status-not-ok { color: #e74c3c; font-weight: bold; }
+        .info { background: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <h1>Pump Well Calculation Report</h1>
+    <p style="text-align: center; color: #7f8c8d;">Generated: ${new Date().toLocaleString()}</p>
+    
+    <h2>Tank Design Data</h2>
+    <table>
+        <tr><th>Parameter</th><th>Value</th><th>Unit</th></tr>
+        <tr><td>Tank Inner Diameter</td><td>${inputs.tankID}</td><td>mm</td></tr>
+        <tr><td>Product Density</td><td>${inputs.productDensity}</td><td>Kg/m³</td></tr>
+        <tr><td>Tank High Liquid Level</td><td>${inputs.HLL}</td><td>mm</td></tr>
+        <tr><td>Design Effective Thickness</td><td>${calc.te.toFixed(2)}</td><td>mm</td></tr>
+        <tr><td>Inside Diameter</td><td>${calc.ID.toFixed(2)}</td><td>mm</td></tr>
+    </table>
+    
+    <h2>Verification Summary</h2>
+    <table>
+        <tr><th>Check Item</th><th>Calculated Value</th><th>Allowable Value</th><th>Status</th></tr>
+        <tr>
+            <td>Internal Pressure Check</td>
+            <td>tr = ${calc.tr.toFixed(3)} mm</td>
+            <td>te = ${calc.te.toFixed(2)} mm</td>
+            <td class="${calc.checkTr === 'OK' ? 'status-ok' : 'status-not-ok'}">${calc.checkTr}</td>
+        </tr>
+        <tr>
+            <td>Test Pressure Check</td>
+            <td>t_st = ${calc.tSt2.toFixed(3)} mm</td>
+            <td>te = ${calc.te.toFixed(2)} mm</td>
+            <td class="${calc.checkTSt === 'OK' ? 'status-ok' : 'status-not-ok'}">${calc.checkTSt}</td>
+        </tr>
+        <tr>
+            <td>External Pressure Check</td>
+            <td>Pa = ${calc.Pa.toFixed(4)} MPa</td>
+            <td>Pdv = ${calc.Pdv.toFixed(4)} MPa</td>
+            <td class="${calc.checkPa === 'OK' ? 'status-ok' : 'status-not-ok'}">${calc.checkPa}</td>
+        </tr>
+        <tr>
+            <td>OBE Seismic Check</td>
+            <td>Pm = ${calc.Pm_OBE.toFixed(3)} MPa</td>
+            <td>St = ${inputs.St.toFixed(2)} MPa</td>
+            <td class="${calc.checkOBE === 'OK' ? 'status-ok' : 'status-not-ok'}">${calc.checkOBE}</td>
+        </tr>
+        <tr>
+            <td>SSE Seismic Check</td>
+            <td>Pl+Pb = ${calc.PlPb_SSE.toFixed(3)} MPa</td>
+            <td>Fy = ${inputs.Fy.toFixed(2)} MPa</td>
+            <td class="${calc.checkSSE === 'OK' ? 'status-ok' : 'status-not-ok'}">${calc.checkSSE}</td>
+        </tr>
+    </table>
+    
+    <h2>Natural Frequency Analysis</h2>
+    <table>
+        <tr><th>Condition</th><th>First Mode (Hz)</th><th>Second Mode (Hz)</th><th>Third Mode (Hz)</th><th>Fourth Mode (Hz)</th></tr>
+        <tr>
+            <td>Full Liquid Level</td>
+            <td>${calc.freqFull1.toFixed(3)}</td>
+            <td>${calc.freqFull2.toFixed(3)}</td>
+            <td>${calc.freqFull3.toFixed(3)}</td>
+            <td>${calc.freqFull4.toFixed(3)}</td>
+        </tr>
+        <tr>
+            <td>Empty</td>
+            <td>${calc.freqEmpty1.toFixed(3)}</td>
+            <td>${calc.freqEmpty2.toFixed(3)}</td>
+            <td>${calc.freqEmpty3.toFixed(3)}</td>
+            <td>${calc.freqEmpty4.toFixed(3)}</td>
+        </tr>
+    </table>
+    
+    <h2>Pump Well Braces Design</h2>
+    <table>
+        <tr><th>Parameter</th><th>Value</th><th>Unit</th></tr>
+        <tr><td>Brace Length</td><td>${calc.Lbr.toFixed(2)}</td><td>mm</td></tr>
+        <tr><td>Section Area</td><td>${calc.angleArea.toFixed(2)}</td><td>mm²</td></tr>
+        <tr><td>Slenderness Ratio</td><td>${calc.slendernessRatio.toFixed(3)}</td><td>-</td></tr>
+        <tr><td>Allowable Compressive Stress</td><td>${calc.allowableCompressiveStress.toFixed(3)}</td><td>MPa</td></tr>
+        <tr><td>Normal Stress (OBE)</td><td>${calc.normalStressOneAngleOBE.toFixed(3)}</td><td>MPa</td></tr>
+        <tr><td>Normal Stress (SSE)</td><td>${calc.normalStressOneAngleSSE.toFixed(3)}</td><td>MPa</td></tr>
+    </table>
+    
+    <div class="info">
+        <strong>Report Status:</strong> ${(calc.checkTr === 'OK' && calc.checkTSt === 'OK' && calc.checkPa === 'OK' && calc.checkOBE === 'OK' && calc.checkSSE === 'OK') ? 
+            '✅ All verification checks passed successfully' : 
+            '⚠️ Some verification checks require attention - Please review the results'}
+    </div>
+    
+    <div style="text-align: right; margin-top: 40px; padding: 20px; background: #f8f9fa; border-top: 2px solid #3498db;">
+        <strong>Developed by: AY</strong>
+    </div>
+</body>
+</html>`;
+            
+            // Create a blob and download
+            const blob = new Blob([htmlContent], { type: 'application/msword' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'Pump_Well_Calculation_Report.doc';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+
+        function exportToExcel() {
+            if (!window.calculationResults) {
+                alert('No calculation results available. Please enter data to generate results.');
+                return;
+            }
+            
+            const { calc, inputs } = window.calculationResults;
+            
+            let csvContent = "Pump Well Calculation Results\n\n";
+            csvContent += "TANK DESIGN DATA\n";
+            csvContent += `Tank Inner Diameter,${inputs.tankID},mm\n`;
+            csvContent += `Product Density,${inputs.productDensity},Kg/m³\n`;
+            csvContent += `Tank High Liquid Level,${inputs.HLL},mm\n`;
+            csvContent += `Design Effective Thickness,${calc.te.toFixed(2)},mm\n`;
+            csvContent += `Inside Diameter,${calc.ID.toFixed(2)},mm\n\n`;
+            
+            csvContent += "VERIFICATION RESULTS\n";
+            csvContent += `Internal Pressure Check,${calc.checkTr}\n`;
+            csvContent += `Test Pressure Check,${calc.checkTSt}\n`;
+            csvContent += `External Pressure Check,${calc.checkPa}\n`;
+            csvContent += `OBE Seismic Check,${calc.checkOBE}\n`;
+            csvContent += `SSE Seismic Check,${calc.checkSSE}\n\n`;
+            
+            csvContent += "NATURAL FREQUENCY (Hz)\n";
+            csvContent += `Condition,First Mode,Second Mode,Third Mode,Fourth Mode\n`;
+            csvContent += `Full,${calc.freqFull1.toFixed(3)},${calc.freqFull2.toFixed(3)},${calc.freqFull3.toFixed(3)},${calc.freqFull4.toFixed(3)}\n`;
+            csvContent += `Empty,${calc.freqEmpty1.toFixed(3)},${calc.freqEmpty2.toFixed(3)},${calc.freqEmpty3.toFixed(3)},${calc.freqEmpty4.toFixed(3)}\n\n`;
+            
+            csvContent += "BRACES DESIGN\n";
+            csvContent += `Brace Length,${calc.Lbr.toFixed(2)},mm\n`;
+            csvContent += `Section Area,${calc.angleArea.toFixed(2)},mm²\n`;
+            csvContent += `Slenderness Ratio,${calc.slendernessRatio.toFixed(3)},-\n`;
+            csvContent += `Allowable Compressive Stress,${calc.allowableCompressiveStress.toFixed(3)},MPa\n`;
+            csvContent += `Normal Stress OBE,${calc.normalStressOneAngleOBE.toFixed(3)},MPa\n`;
+            csvContent += `Normal Stress SSE,${calc.normalStressOneAngleSSE.toFixed(3)},MPa\n`;
+            csvContent += `\n\n`;
+            csvContent += `DEVELOPED BY: AY\n`;
+            
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", "pump_well_calculation_results.csv");
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
