@@ -1582,261 +1582,511 @@
             document.getElementById('summaryResults').innerHTML = html;
         }
 
+        // ============================================================
+        // COMPREHENSIVE REPORT DATA BUILDER
+        // Returns ordered sections containing ALL inputs and ALL outputs.
+        // Calculated rows include the symbolic formula and the substituted
+        // numeric expression so the report is fully traceable.
+        // ============================================================
+        function buildReportData() {
+            const { calc, inputs } = window.calculationResults;
+            const n = (v, d = 3) => (typeof v === 'number' && isFinite(v)) ? v.toFixed(d) : v;
+
+            // ---------- INPUT SECTIONS ----------
+            const inputSections = [
+                {
+                    title: '1. Tank Design Data',
+                    rows: [
+                        ['Tank Inner Diameter (ID)', inputs.tankID, 'mm'],
+                        ['Product Density (rho_product)', inputs.productDensity, 'Kg/m3'],
+                        ['Tank High Liquid Level (HLL)', inputs.HLL, 'mm'],
+                        ['Hydrostatic Liquid Height (H_test)', inputs.Htest, 'mm'],
+                        ['Test Liquid Density (rho_test)', inputs.testDensity, 'Kg/m3'],
+                        ['Weight of In-Tank Equipment (W_in_tank_pump)', inputs.WinTankPump, 'Kg'],
+                        ['Weight of Stairway (W_stair)', inputs.Wstair, 'Kg']
+                    ]
+                },
+                {
+                    title: '2. Pipe Design Data',
+                    rows: [
+                        ['Design Pressure of Outer Tank (Pd)', inputs.Pd, 'kPa'],
+                        ['Internal Design Pressure (Pi)', inputs.Pi, 'MPa'],
+                        ['Radius to Centerline (R01)', inputs.R01, 'mm'],
+                        ['Length Between Supports (LL)', inputs.LL, 'mm'],
+                        ['Outside Diameter (O.D.)', inputs.OD, 'mm'],
+                        ['Wall Thickness (tn)', inputs.tn, 'mm'],
+                        ['Corrosion Allowance (C2)', inputs.C2, 'mm'],
+                        ['Wall Thickness Variation (C1)', inputs.C1, 'mm'],
+                        ['Tensile Strength (Ft)', inputs.Ft, 'MPa'],
+                        ['Yield Strength (Fy)', inputs.Fy, 'MPa'],
+                        ['Allowable Tensile Stress (St)', inputs.St, 'MPa'],
+                        ['Modulus of Elasticity (Em)', inputs.Em, 'MPa'],
+                        ['Material Density (rho_steel)', inputs.rhoSteel, 'kg/m3'],
+                        ['Joint Efficiency (E)', inputs.jointEfficiency, '-']
+                    ]
+                },
+                {
+                    title: '3. External Pressure Data',
+                    rows: [
+                        ['Inner Pressure / Vacuum (Pv1)', inputs.Pv1, 'MPa'],
+                        ['External Pressure Factor A', inputs.factorA, '-'],
+                        ['External Pressure Factor B', inputs.factorB, '-']
+                    ]
+                },
+                {
+                    title: '4. Seismic Data',
+                    rows: [
+                        ['OBE Horizontal Acceleration (a_OBE)', inputs.aOBE, 'g'],
+                        ['SSE Horizontal Acceleration (a_SSE)', inputs.aSSE, 'g'],
+                        ['Design Internal Pressure at Bottom (Pc)', inputs.Pc, 'MPa']
+                    ]
+                },
+                {
+                    title: '5. Pump Well Braces Design Data',
+                    rows: [
+                        ['Included Angle Between Two Braces', inputs.braceAngle, 'deg'],
+                        ['Pump Well to Inner Tank Distance', inputs.pumpToTankDist, 'mm'],
+                        ['Radius of Inner Tank', inputs.innerTankRadius, 'mm'],
+                        ['Angle Size - b (width)', inputs.angleB, 'mm'],
+                        ['Angle Size - h (height)', inputs.angleH, 'mm'],
+                        ['Angle Size - t (thickness)', inputs.angleT, 'mm'],
+                        ['Number of Angles', inputs.numAngles, '-'],
+                        ['Effective Length Factor (k)', inputs.effectiveLengthFactor, '-']
+                    ]
+                }
+            ];
+
+            // ---------- OUTPUT SECTIONS ----------
+            // Each row: [Parameter, Formula, Substitution, Value, Unit]
+            const outputSections = [
+                {
+                    title: 'A. Basic Geometry & Section Properties',
+                    head: ['Parameter', 'Formula', 'Substitution', 'Value', 'Unit'],
+                    rows: [
+                        ['Effective Thickness (te)', 'te = tn - C2 - C1',
+                            `${inputs.tn} - ${inputs.C2} - ${inputs.C1}`, n(calc.te, 2), 'mm'],
+                        ['Inside Diameter (ID)', 'ID = OD - 2*te',
+                            `${inputs.OD} - 2x${n(calc.te,2)}`, n(calc.ID, 2), 'mm'],
+                        ['Cross Section Area (Apt)', 'Apt = pi*(OD^2 - ID^2)/4',
+                            `pi*(${inputs.OD}^2 - ${n(calc.ID,2)}^2)/4`, n(calc.Apt, 2), 'mm2'],
+                        ['Section Modulus (Spt)', 'Spt = pi*(OD^4 - ID^4)/(32*OD)',
+                            `pi*(${inputs.OD}^4 - ${n(calc.ID,2)}^4)/(32x${inputs.OD})`, n(calc.Spt, 2), 'mm3']
+                    ]
+                },
+                {
+                    title: 'B. Unit Weights',
+                    head: ['Parameter', 'Formula', 'Substitution', 'Value', 'Unit'],
+                    rows: [
+                        ['Pump Well self weight (W_pw)', 'W = pi*(OD-2tn)*tn*9.81*rho_steel*1e-9',
+                            `pi*(${inputs.OD}-2x${inputs.tn})x${inputs.tn}x9.81x${inputs.rhoSteel}x1e-9`, n(calc.WpumpWell, 4), 'N/mm'],
+                        ['Liquid (product) weight (W_liq)', 'W = pi*(OD-2tn)^2*9.81*rho_product*1e-9/4',
+                            `pi*(${inputs.OD}-2x${inputs.tn})^2x9.81x${inputs.productDensity}x1e-9/4`, n(calc.Wliquid, 4), 'N/mm'],
+                        ['Test water weight (W_water)', 'W = pi*(OD-2tn)^2*9.81*rho_test*1e-9/4',
+                            `pi*(${inputs.OD}-2x${inputs.tn})^2x9.81x${inputs.testDensity}x1e-9/4`, n(calc.Wwater, 4), 'N/mm'],
+                        ['Pump Well + Stair (W_pw+stair)', 'W = W_pw + 0.4',
+                            `${n(calc.WpumpWell,4)} + 0.4`, n(calc.WpumpWellAndStair, 4), 'N/mm']
+                    ]
+                },
+                {
+                    title: 'C. Internal Pressure Check',
+                    head: ['Parameter', 'Formula', 'Substitution', 'Value', 'Unit'],
+                    rows: [
+                        ['Calculated Internal Pressure (Pi_calc)', 'Pi = 0.029 + rho_product*9.81*HLL*1e-9',
+                            `0.029 + ${inputs.productDensity}x9.81x${inputs.HLL}x1e-9`, n(calc.PiCalculated, 4), 'MPa'],
+                        ['Hydrostatic Test Pressure (Pt)', 'Pt = 1.5*Pi',
+                            `1.5x${inputs.Pi}`, n(calc.Pt, 4), 'MPa'],
+                        ['Calculated Thickness (t)', 't = Pc*ID*0.5/(St*E - 0.6*Pc)',
+                            `${inputs.Pc}x${n(calc.ID,2)}x0.5/(${inputs.St}x${inputs.jointEfficiency} - 0.6x${inputs.Pc})`, n(calc.t, 3), 'mm'],
+                        ['Required Thickness (tr)', 'tr = t + C2 + C1',
+                            `${n(calc.t,3)} + ${inputs.C2} + ${inputs.C1}`, n(calc.tr, 3), 'mm'],
+                        ['Effective Thickness (te)', 'te = tn - C2 - C1',
+                            `${inputs.tn} - ${inputs.C2} - ${inputs.C1}`, n(calc.te, 2), 'mm'],
+                        ['Check (tr < te)', 'tr < te ?',
+                            `${n(calc.tr,3)} < ${n(calc.te,2)}`, calc.checkTr, '']
+                    ]
+                },
+                {
+                    title: 'D. Test Pressure Check',
+                    head: ['Parameter', 'Formula', 'Substitution', 'Value', 'Unit'],
+                    rows: [
+                        ['Allowable Stress at Test (St_test)', 'St_test = 0.95*Fy',
+                            `0.95x${inputs.Fy}`, n(calc.StSt, 2), 'MPa'],
+                        ['Required Thickness at Test (t_st)', 't_st = 1.5*Pc*ID*0.5/(St_test*E - 0.6*Pt)',
+                            `1.5x${inputs.Pc}x${n(calc.ID,2)}x0.5/(${n(calc.StSt,2)}x${inputs.jointEfficiency} - 0.6x${n(calc.Pt,4)})`, n(calc.tSt2, 3), 'mm'],
+                        ['Check (t_st < te)', 't_st < te ?',
+                            `${n(calc.tSt2,3)} < ${n(calc.te,2)}`, calc.checkTSt, '']
+                    ]
+                },
+                {
+                    title: 'E. External Pressure Check',
+                    head: ['Parameter', 'Formula', 'Substitution', 'Value', 'Unit'],
+                    rows: [
+                        ['Design Pressure incl. vacuum (Pdv)', 'Pdv = Pv1 + rho_product*9.81*HLL*1e-9',
+                            `${inputs.Pv1} + ${inputs.productDensity}x9.81x${inputs.HLL}x1e-9`, n(calc.Pdv, 4), 'MPa'],
+                        ['Unsupported Length (L)', 'L = LL',
+                            `${inputs.LL}`, n(calc.L, 2), 'mm'],
+                        ['L / D0 Ratio', 'L/D0 = L / OD',
+                            `${n(calc.L,2)} / ${inputs.OD}`, n(calc.LoverD0, 3), '-'],
+                        ['D0 / te Ratio', 'D0/te = OD / te',
+                            `${inputs.OD} / ${n(calc.te,2)}`, n(calc.D0OverTe, 3), '-'],
+                        ['Allowable External Pressure (Pa)', 'Pa = 4*B / (3*(D0/te))',
+                            `4x${inputs.factorB} / (3x${n(calc.D0OverTe,3)})`, n(calc.Pa, 4), 'MPa'],
+                        ['Check (Pa > max(Pv1, Pdv))', 'Pa > max(Pv1, Pdv) ?',
+                            `${n(calc.Pa,4)} > ${n(Math.max(inputs.Pv1, calc.Pdv),4)}`, calc.checkPa, '']
+                    ]
+                },
+                {
+                    title: 'F. Seismic Analysis - OBE (Operating Basis Earthquake)',
+                    head: ['Parameter', 'Formula', 'Substitution', 'Value', 'Unit'],
+                    rows: [
+                        ['Total Uniform Load (W_total)', 'W = (W_liq + W_pw+stair)*1.1',
+                            `(${n(calc.Wliquid,4)} + ${n(calc.WpumpWellAndStair,4)})x1.1`, n(calc.WtotalOBE, 4), 'N/mm'],
+                        ['Seismic Load (W_seismic)', 'W_s = W_total*a_OBE/1.1',
+                            `${n(calc.WtotalOBE,4)}x${inputs.aOBE}/1.1`, n(calc.WseismicOBE, 4), 'N/mm'],
+                        ['Max Seismic Moment (Mmax)', 'Mmax = W_total*LL^2/16',
+                            `${n(calc.WtotalOBE,4)}x${inputs.LL}^2/16`, n(calc.MmaxOBE, 2), 'N.mm'],
+                        ['Bending Stress (sigma_bend)', 'sigma = Mmax / Se',
+                            `${n(calc.MmaxOBE,2)} / ${n(calc.SeOBE,2)}`, n(calc.sigmaBendOBE, 3), 'MPa'],
+                        ['Axial Stress - Weight (sigma_A)', 'sigma_A = (rho_steel*1e-9*LL*Apt + W_in + W_stair)*9.81/Apt',
+                            `((${inputs.rhoSteel}x1e-9x${inputs.LL}x${n(calc.Apt,2)} + ${inputs.WinTankPump} + ${inputs.Wstair})/${n(calc.Apt,2)})x9.81`, n(calc.sigmaA, 3), 'MPa'],
+                        ['Axial Stress - Pressure (sigma_B)', 'sigma_B = Pc*OD/(4*te)',
+                            `${inputs.Pc}x${inputs.OD}/(4x${n(calc.te,2)})`, n(calc.sigmaB, 3), 'MPa'],
+                        ['Axial Stress - Seismic (sigma_C)', 'sigma_C = ((rho_steel*1e-9*Apt + W_total/9.81)*LL + W_in)*a_OBE*9.81/Apt',
+                            `a_OBE=${inputs.aOBE}`, n(calc.sigmaC_OBE, 3), 'MPa'],
+                        ['Hoop Stress - Design (sigma_hoop)', 'sigma_hoop = Pc*OD/(2*te)',
+                            `${inputs.Pc}x${inputs.OD}/(2x${n(calc.te,2)})`, n(calc.sigmaHoopDesign, 3), 'MPa'],
+                        ['Primary Membrane Stress (Pm)', 'Pm = sigma_A + sigma_B + sigma_C + sigma_hoop',
+                            `${n(calc.sigmaA,3)} + ${n(calc.sigmaB,3)} + ${n(calc.sigmaC_OBE,3)} + ${n(calc.sigmaHoopDesign,3)}`, n(calc.Pm_OBE, 3), 'MPa'],
+                        ['Pm + Pb (membrane+bending)', 'Pl+Pb = Pm + sigma_bend',
+                            `${n(calc.Pm_OBE,3)} + ${n(calc.sigmaBendOBE,3)}`, n(calc.PlPb_OBE, 3), 'MPa'],
+                        ['Allowable Stress (St)', 'St',
+                            `${inputs.St}`, n(inputs.St, 2), 'MPa'],
+                        ['Check (Pm < St)', 'Pm < St ?',
+                            `${n(calc.Pm_OBE,3)} < ${n(inputs.St,2)}`, calc.checkOBE, '']
+                    ]
+                },
+                {
+                    title: 'G. Seismic Analysis - SSE (Safe Shutdown Earthquake)',
+                    head: ['Parameter', 'Formula', 'Substitution', 'Value', 'Unit'],
+                    rows: [
+                        ['Total Uniform Load (W_total)', 'W = (W_liq + W_pw+stair)*1.1',
+                            `(${n(calc.Wliquid,4)} + ${n(calc.WpumpWellAndStair,4)})x1.1`, n(calc.WtotalSSE, 4), 'N/mm'],
+                        ['Seismic Load (W_seismic)', 'W_s = W_total*a_SSE/1.1',
+                            `${n(calc.WtotalSSE,4)}x${inputs.aSSE}/1.1`, n(calc.WseismicSSE, 4), 'N/mm'],
+                        ['Max Seismic Moment (Mmax)', 'Mmax = W_total*LL^2/16',
+                            `${n(calc.WtotalSSE,4)}x${inputs.LL}^2/16`, n(calc.MmaxSSE, 2), 'N.mm'],
+                        ['Bending Stress (sigma_bend)', 'sigma = Mmax / Se',
+                            `${n(calc.MmaxSSE,2)} / ${n(calc.SeSSE,2)}`, n(calc.sigmaBendSSE, 3), 'MPa'],
+                        ['Axial Stress - Seismic (sigma_C)', 'sigma_C = ((rho_steel*1e-9*Apt + W_total/9.81)*LL + W_in)*a_SSE*9.81/Apt',
+                            `a_SSE=${inputs.aSSE}`, n(calc.sigmaC_SSE, 3), 'MPa'],
+                        ['Primary Membrane Stress (Pm)', 'Pm = sigma_A + sigma_B + sigma_C + sigma_hoop',
+                            `${n(calc.sigmaA,3)} + ${n(calc.sigmaB,3)} + ${n(calc.sigmaC_SSE,3)} + ${n(calc.sigmaHoopDesign,3)}`, n(calc.Pm_SSE, 3), 'MPa'],
+                        ['Pl + Pb (membrane+bending)', 'Pl+Pb = Pm + sigma_bend',
+                            `${n(calc.Pm_SSE,3)} + ${n(calc.sigmaBendSSE,3)}`, n(calc.PlPb_SSE, 3), 'MPa'],
+                        ['Yield Strength (Fy)', 'Fy',
+                            `${inputs.Fy}`, n(inputs.Fy, 2), 'MPa'],
+                        ['Check (Pl+Pb < Fy)', 'Pl+Pb < Fy ?',
+                            `${n(calc.PlPb_SSE,3)} < ${n(inputs.Fy,2)}`, calc.checkSSE, '']
+                    ]
+                },
+                {
+                    title: 'H. Natural Frequency Analysis',
+                    head: ['Mode', 'Mode Factor (k)', 'Full Level (Hz)', 'Empty (Hz)'],
+                    rows: [
+                        ['Mode 1', n(calc.k1, 4), n(calc.freqFull1, 3), n(calc.freqEmpty1, 3)],
+                        ['Mode 2', n(calc.k2, 4), n(calc.freqFull2, 3), n(calc.freqEmpty2, 3)],
+                        ['Mode 3', n(calc.k3, 4), n(calc.freqFull3, 3), n(calc.freqEmpty3, 3)],
+                        ['Mode 4', n(calc.k4, 4), n(calc.freqFull4, 3), n(calc.freqEmpty4, 3)]
+                    ],
+                    note: 'f = (sqrt(1000*Em*Spt*OD/2 / (A*rho)) * k^2) / (2*pi*LL^2);  k = (4n+1)*pi/4;  A*rho_full = ' + calc.ARhoFull + ', A*rho_empty = ' + calc.ARhoEmpty
+                },
+                {
+                    title: 'I. Pump Well Braces Design',
+                    head: ['Parameter', 'Formula', 'Substitution', 'Value', 'Unit'],
+                    rows: [
+                        ['Brace Length (Lbr)', 'Lbr = pumpToTankDist - OD/2',
+                            `${inputs.pumpToTankDist} - ${inputs.OD}/2`, n(calc.Lbr, 2), 'mm'],
+                        ['Angle Section Area', 'A = (b + h - t)*t',
+                            `(${inputs.angleB} + ${inputs.angleH} - ${inputs.angleT})x${inputs.angleT}`, n(calc.angleArea, 2), 'mm2'],
+                        ['Centroid (y)', 'y = h - [t*(2h-2t+b) + (h-t)^2] / (2h-2t+2b)',
+                            `b=${inputs.angleB}, h=${inputs.angleH}, t=${inputs.angleT}`, n(calc.centroid, 3), 'mm'],
+                        ['Moment of Inertia (I)', 'I = [t*y^3 + b*(h-y)^3 - (b-t)*(h-y-t)^3]/3',
+                            `y=${n(calc.centroid,3)}`, n(calc.momentOfInertia, 2), 'mm4'],
+                        ['Radius of Gyration (r)', 'r = sqrt(I / A)',
+                            `sqrt(${n(calc.momentOfInertia,2)} / ${n(calc.angleArea,2)})`, n(calc.gyrationRadius, 3), 'mm'],
+                        ['Slenderness Ratio (kL/r)', 'KL/r = k*Lbr / r',
+                            `${inputs.effectiveLengthFactor}x${n(calc.Lbr,2)} / ${n(calc.gyrationRadius,3)}`, n(calc.slendernessRatio, 3), '-'],
+                        ['Limiting Width/Thk Ratio', '0.45*sqrt(Em/Fy)',
+                            `0.45xsqrt(${inputs.Em}/${inputs.Fy})`, n(calc.limitingWidthThicknessRatio, 3), '-'],
+                        ['Actual Width/Thk Ratio', 'b / t',
+                            `${inputs.angleB} / ${inputs.angleT}`, n(calc.actualWidthThicknessRatio, 3), '-'],
+                        ['Slenderness Limit', '4.71*sqrt(Em/Fy)',
+                            `4.71xsqrt(${inputs.Em}/${inputs.Fy})`, n(calc.ratioLimit, 3), '-'],
+                        ['Elastic Buckling Stress (Fe)', 'Fe = pi^2*Em / (KL/r)^2',
+                            `pi^2x${inputs.Em} / ${n(calc.slendernessRatio,3)}^2`, n(calc.elasticBucklingStress, 3), 'MPa'],
+                        ['Critical Stress (Fn)', calc.slendernessRatio > calc.ratioLimit ? 'Fn = 0.877*Fe' : 'Fn = 0.658^(Fy/Fe)*Fy',
+                            calc.slendernessRatio > calc.ratioLimit ? `0.877x${n(calc.elasticBucklingStress,3)}` : `0.658^(${inputs.Fy}/${n(calc.elasticBucklingStress,3)})x${inputs.Fy}`, n(calc.Fn, 3), 'MPa'],
+                        ['Allowable Compressive Stress', 'Fa = (Fn/1.67)*1.33',
+                            `(${n(calc.Fn,3)}/1.67)x1.33`, n(calc.allowableCompressiveStress, 3), 'MPa'],
+                        ['Max Brace Force (OBE)', 'F = W_seismic_OBE * LL',
+                            `${n(calc.WseismicOBE,4)}x${inputs.LL}`, n(calc.maxBraceForceOBE, 2), 'N'],
+                        ['Max Brace Force (SSE)', 'F = W_seismic_SSE * LL',
+                            `${n(calc.WseismicSSE,4)}x${inputs.LL}`, n(calc.maxBraceForceSSE, 2), 'N'],
+                        ['Normal Stress / angle (OBE)', 'sigma = F_OBE / (A * num_angles)',
+                            `${n(calc.maxBraceForceOBE,2)} / (${n(calc.angleArea,2)}x${inputs.numAngles})`, n(calc.normalStressOneAngleOBE, 3), 'MPa'],
+                        ['Normal Stress / angle (SSE)', 'sigma = F_SSE / (A * num_angles)',
+                            `${n(calc.maxBraceForceSSE,2)} / (${n(calc.angleArea,2)}x${inputs.numAngles})`, n(calc.normalStressOneAngleSSE, 3), 'MPa']
+                    ]
+                }
+            ];
+
+            const verification = [
+                ['Internal Pressure Check', `tr = ${n(calc.tr,3)} mm`, `te = ${n(calc.te,2)} mm`, calc.checkTr],
+                ['Test Pressure Check', `t_st = ${n(calc.tSt2,3)} mm`, `te = ${n(calc.te,2)} mm`, calc.checkTSt],
+                ['External Pressure Check', `Pa = ${n(calc.Pa,4)} MPa`, `Pdv = ${n(calc.Pdv,4)} MPa`, calc.checkPa],
+                ['OBE Seismic Check', `Pm = ${n(calc.Pm_OBE,3)} MPa`, `St = ${n(inputs.St,2)} MPa`, calc.checkOBE],
+                ['SSE Seismic Check', `Pl+Pb = ${n(calc.PlPb_SSE,3)} MPa`, `Fy = ${n(inputs.Fy,2)} MPa`, calc.checkSSE]
+            ];
+
+            const allPass = calc.checkTr === 'OK' && calc.checkTSt === 'OK' &&
+                            calc.checkPa === 'OK' && calc.checkOBE === 'OK' && calc.checkSSE === 'OK';
+
+            return { inputSections, outputSections, verification, allPass };
+        }
+
+        // ============================================================
+        // PDF EXPORT - full inputs, full outputs, formulae, verification
+        // ============================================================
         function exportToPDF() {
             if (!window.calculationResults) {
                 alert('No calculation results available. Please enter data to generate results.');
                 return;
             }
-            
+
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
-            const { calc, inputs } = window.calculationResults;
-            
-            // Title
+            const data = buildReportData();
+            const pageWidth = doc.internal.pageSize.getWidth();
+
+            // ---- Title page header ----
             doc.setFontSize(20);
             doc.setTextColor(44, 62, 80);
-            doc.text('Pump Well Calculation Report', 105, 20, { align: 'center' });
-            
+            doc.text('Pump Well Calculation Report', pageWidth / 2, 20, { align: 'center' });
             doc.setFontSize(10);
             doc.setTextColor(100, 100, 100);
-            doc.text(`Generated: ${new Date().toLocaleString()}`, 105, 28, { align: 'center' });
-            
-            let yPos = 40;
-            
-            // Tank Design Data
-            doc.setFontSize(14);
-            doc.setTextColor(52, 152, 219);
-            doc.text('Tank Design Data', 14, yPos);
-            yPos += 8;
-            
-            doc.autoTable({
-                startY: yPos,
-                head: [['Parameter', 'Value', 'Unit']],
-                body: [
-                    ['Tank Inner Diameter', inputs.tankID, 'mm'],
-                    ['Product Density', inputs.productDensity, 'Kg/m³'],
-                    ['Tank High Liquid Level', inputs.HLL, 'mm'],
-                    ['Design Effective Thickness', calc.te.toFixed(2), 'mm'],
-                    ['Inside Diameter', calc.ID.toFixed(2), 'mm']
-                ],
-                theme: 'grid',
-                headStyles: { fillColor: [52, 152, 219] },
-                margin: { left: 14 }
+            doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth / 2, 28, { align: 'center' });
+
+            let yPos = 38;
+
+            const sectionHeader = (text) => {
+                if (yPos > 250) { doc.addPage(); yPos = 20; }
+                doc.setFontSize(12);
+                doc.setTextColor(52, 152, 219);
+                doc.text(text, 14, yPos);
+                yPos += 4;
+            };
+
+            // ---- PART 1: INPUT DATA ----
+            doc.setFontSize(15);
+            doc.setTextColor(44, 62, 80);
+            doc.text('PART 1 - INPUT DATA', 14, yPos);
+            yPos += 6;
+
+            data.inputSections.forEach(sec => {
+                sectionHeader(sec.title);
+                doc.autoTable({
+                    startY: yPos,
+                    head: [['Parameter', 'Value', 'Unit']],
+                    body: sec.rows.map(r => [r[0], String(r[1]), r[2]]),
+                    theme: 'grid',
+                    headStyles: { fillColor: [52, 152, 219], fontSize: 8 },
+                    bodyStyles: { fontSize: 8 },
+                    margin: { left: 14, right: 14 }
+                });
+                yPos = doc.lastAutoTable.finalY + 8;
             });
-            
-            yPos = doc.lastAutoTable.finalY + 10;
-            
-            // Verification Summary
-            doc.setFontSize(14);
-            doc.setTextColor(52, 152, 219);
-            doc.text('Verification Summary', 14, yPos);
+
+            // ---- PART 2: CALCULATION RESULTS WITH FORMULAE ----
+            doc.addPage();
+            yPos = 20;
+            doc.setFontSize(15);
+            doc.setTextColor(44, 62, 80);
+            doc.text('PART 2 - CALCULATION RESULTS & FORMULAE', 14, yPos);
+            yPos += 6;
+
+            data.outputSections.forEach(sec => {
+                sectionHeader(sec.title);
+                doc.autoTable({
+                    startY: yPos,
+                    head: [sec.head],
+                    body: sec.rows.map(r => r.map(c => String(c))),
+                    theme: 'grid',
+                    headStyles: { fillColor: [44, 62, 80], fontSize: 7.5 },
+                    bodyStyles: { fontSize: 7 },
+                    columnStyles: sec.head.length === 5 ? {
+                        0: { cellWidth: 38 }, 1: { cellWidth: 48 },
+                        2: { cellWidth: 50 }, 3: { cellWidth: 25 }, 4: { cellWidth: 21 }
+                    } : {},
+                    margin: { left: 14, right: 14 },
+                    didParseCell: function (d) {
+                        if (d.cell.section === 'body' && (d.cell.raw === 'OK' || d.cell.raw === 'NOT OK')) {
+                            d.cell.styles.fontStyle = 'bold';
+                            d.cell.styles.textColor = d.cell.raw === 'OK' ? [39, 174, 96] : [231, 76, 60];
+                        }
+                    }
+                });
+                yPos = doc.lastAutoTable.finalY + 4;
+                if (sec.note) {
+                    if (yPos > 265) { doc.addPage(); yPos = 20; }
+                    doc.setFontSize(7);
+                    doc.setTextColor(90, 90, 90);
+                    const noteLines = doc.splitTextToSize('Formula: ' + sec.note, pageWidth - 28);
+                    doc.text(noteLines, 14, yPos);
+                    yPos += noteLines.length * 4 + 4;
+                }
+                yPos += 4;
+            });
+
+            // ---- PART 3: VERIFICATION SUMMARY ----
+            doc.addPage();
+            yPos = 20;
+            doc.setFontSize(15);
+            doc.setTextColor(44, 62, 80);
+            doc.text('PART 3 - VERIFICATION SUMMARY', 14, yPos);
             yPos += 8;
-            
+
             doc.autoTable({
                 startY: yPos,
                 head: [['Check Item', 'Calculated', 'Allowable', 'Status']],
-                body: [
-                    ['Internal Pressure', `tr = ${calc.tr.toFixed(3)} mm`, `te = ${calc.te.toFixed(2)} mm`, calc.checkTr],
-                    ['Test Pressure', `t_st = ${calc.tSt2.toFixed(3)} mm`, `te = ${calc.te.toFixed(2)} mm`, calc.checkTSt],
-                    ['External Pressure', `Pa = ${calc.Pa.toFixed(4)} MPa`, `Pdv = ${calc.Pdv.toFixed(4)} MPa`, calc.checkPa],
-                    ['OBE Seismic', `Pm = ${calc.Pm_OBE.toFixed(3)} MPa`, `St = ${inputs.St.toFixed(2)} MPa`, calc.checkOBE],
-                    ['SSE Seismic', `Pl+Pb = ${calc.PlPb_SSE.toFixed(3)} MPa`, `Fy = ${inputs.Fy.toFixed(2)} MPa`, calc.checkSSE]
-                ],
+                body: data.verification,
                 theme: 'grid',
-                headStyles: { fillColor: [52, 152, 219] },
-                margin: { left: 14 },
-                didParseCell: function(data) {
-                    if (data.column.index === 3 && data.cell.section === 'body') {
-                        if (data.cell.raw === 'OK') {
-                            data.cell.styles.textColor = [39, 174, 96];
-                            data.cell.styles.fontStyle = 'bold';
-                        } else if (data.cell.raw === 'NOT OK') {
-                            data.cell.styles.textColor = [231, 76, 60];
-                            data.cell.styles.fontStyle = 'bold';
-                        }
+                headStyles: { fillColor: [52, 152, 219], fontSize: 9 },
+                bodyStyles: { fontSize: 8 },
+                margin: { left: 14, right: 14 },
+                didParseCell: function (d) {
+                    if (d.column.index === 3 && d.cell.section === 'body') {
+                        d.cell.styles.fontStyle = 'bold';
+                        d.cell.styles.textColor = d.cell.raw === 'OK' ? [39, 174, 96] : [231, 76, 60];
                     }
                 }
             });
-            
-            // Add new page for frequency and braces
-            doc.addPage();
-            yPos = 20;
-            
-            // Natural Frequency
-            doc.setFontSize(14);
-            doc.setTextColor(52, 152, 219);
-            doc.text('Natural Frequency Analysis', 14, yPos);
-            yPos += 8;
-            
-            doc.autoTable({
-                startY: yPos,
-                head: [['Condition', 'First Mode (Hz)', 'Second Mode (Hz)', 'Third Mode (Hz)']],
-                body: [
-                    ['Full', calc.freqFull1.toFixed(3), calc.freqFull2.toFixed(3), calc.freqFull3.toFixed(3)],
-                    ['Empty', calc.freqEmpty1.toFixed(3), calc.freqEmpty2.toFixed(3), calc.freqEmpty3.toFixed(3)]
-                ],
-                theme: 'grid',
-                headStyles: { fillColor: [52, 152, 219] },
-                margin: { left: 14 }
-            });
-            
-            yPos = doc.lastAutoTable.finalY + 10;
-            
-            // Braces Design
-            doc.setFontSize(14);
-            doc.setTextColor(52, 152, 219);
-            doc.text('Pump Well Braces Design', 14, yPos);
-            yPos += 8;
-            
-            doc.autoTable({
-                startY: yPos,
-                head: [['Parameter', 'Value', 'Unit']],
-                body: [
-                    ['Brace Length', calc.Lbr.toFixed(2), 'mm'],
-                    ['Section Area', calc.angleArea.toFixed(2), 'mm²'],
-                    ['Slenderness Ratio', calc.slendernessRatio.toFixed(3), '-'],
-                    ['Allowable Compressive Stress', calc.allowableCompressiveStress.toFixed(3), 'MPa'],
-                    ['Normal Stress (OBE)', calc.normalStressOneAngleOBE.toFixed(3), 'MPa'],
-                    ['Normal Stress (SSE)', calc.normalStressOneAngleSSE.toFixed(3), 'MPa']
-                ],
-                theme: 'grid',
-                headStyles: { fillColor: [52, 152, 219] },
-                margin: { left: 14 }
-            });
-            
-            // Save PDF
-            doc.save('Pump_Well_Calculation_Report.pdf');
-            
-            // Add watermark to all pages
+            yPos = doc.lastAutoTable.finalY + 12;
+
+            doc.setFontSize(11);
+            if (data.allPass) {
+                doc.setTextColor(39, 174, 96);
+                doc.text('OVERALL STATUS: All verification checks PASSED', 14, yPos);
+            } else {
+                doc.setTextColor(231, 76, 60);
+                doc.text('OVERALL STATUS: Some checks require attention - review results', 14, yPos);
+            }
+
+            // ---- Watermark on all pages ----
             const pageCount = doc.internal.getNumberOfPages();
             for (let i = 1; i <= pageCount; i++) {
                 doc.setPage(i);
-                doc.setFontSize(10);
-                doc.setTextColor(100, 100, 100);
-                doc.text('Developed by: AY', 200, 287, { align: 'right' });
+                doc.setFontSize(8);
+                doc.setTextColor(150, 150, 150);
+                doc.text('Developed by: AY', pageWidth - 14, 290, { align: 'right' });
+                doc.text(`Page ${i} of ${pageCount}`, 14, 290);
             }
-            
+
             doc.save('Pump_Well_Calculation_Report.pdf');
         }
 
+        // ============================================================
+        // WORD EXPORT - full inputs, full outputs, formulae, verification
+        // ============================================================
         function exportToWord() {
             if (!window.calculationResults) {
                 alert('No calculation results available. Please enter data to generate results.');
                 return;
             }
-            
-            const { calc, inputs } = window.calculationResults;
-            
-            // Create a simple HTML document
-            let htmlContent = `
-<!DOCTYPE html>
-<html>
+
+            const data = buildReportData();
+
+            const inputTable = (sec) => {
+                let t = `<h3>${sec.title}</h3><table><tr><th>Parameter</th><th>Value</th><th>Unit</th></tr>`;
+                sec.rows.forEach(r => {
+                    t += `<tr><td>${r[0]}</td><td style="text-align:center;">${r[1]}</td><td style="text-align:center;">${r[2]}</td></tr>`;
+                });
+                return t + `</table>`;
+            };
+
+            const outputTable = (sec) => {
+                let t = `<h3>${sec.title}</h3><table><tr>`;
+                sec.head.forEach(h => { t += `<th>${h}</th>`; });
+                t += `</tr>`;
+                sec.rows.forEach(r => {
+                    t += `<tr>`;
+                    r.forEach((c, idx) => {
+                        let cls = '';
+                        if (c === 'OK') cls = ' class="status-ok"';
+                        else if (c === 'NOT OK') cls = ' class="status-not-ok"';
+                        const align = idx === 0 ? 'left' : (idx === 1 || idx === 2 ? 'left' : 'center');
+                        t += `<td${cls} style="text-align:${align};">${c}</td>`;
+                    });
+                    t += `</tr>`;
+                });
+                t += `</table>`;
+                if (sec.note) t += `<p class="formula-note"><em>Formula: ${sec.note}</em></p>`;
+                return t;
+            };
+
+            let inputHtml = data.inputSections.map(inputTable).join('');
+            let outputHtml = data.outputSections.map(outputTable).join('');
+
+            let verifyHtml = `<table><tr><th>Check Item</th><th>Calculated Value</th><th>Allowable Value</th><th>Status</th></tr>`;
+            data.verification.forEach(r => {
+                const cls = r[3] === 'OK' ? 'status-ok' : 'status-not-ok';
+                verifyHtml += `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td class="${cls}" style="text-align:center;">${r[3]}</td></tr>`;
+            });
+            verifyHtml += `</table>`;
+
+            let htmlContent = `<!DOCTYPE html>
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
 <head>
+    <meta charset="utf-8">
+    <title>Pump Well Calculation Report</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 40px; }
+        body { font-family: 'Calibri', Arial, sans-serif; margin: 30px; font-size: 11pt; }
         h1 { color: #2c3e50; text-align: center; }
-        h2 { color: #3498db; margin-top: 30px; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
-        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
-        th { background-color: #3498db; color: white; }
+        h2 { color: #2c3e50; margin-top: 28px; border-bottom: 2px solid #2c3e50; padding-bottom: 6px; }
+        h3 { color: #3498db; margin-top: 18px; }
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 9pt; }
+        th, td { border: 1px solid #999; padding: 5px 7px; text-align: left; vertical-align: top; }
+        th { background-color: #34495e; color: white; }
         .status-ok { color: #27ae60; font-weight: bold; }
         .status-not-ok { color: #e74c3c; font-weight: bold; }
-        .info { background: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 20px 0; }
+        .formula-note { font-size: 8.5pt; color: #555; margin: 4px 0 14px 0; }
+        .info { background: #f4f6f7; padding: 12px; border-left: 4px solid #3498db; margin: 20px 0; }
+        .footer { text-align: right; margin-top: 40px; padding: 14px; background: #f8f9fa; border-top: 2px solid #3498db; }
     </style>
 </head>
 <body>
     <h1>Pump Well Calculation Report</h1>
-    <p style="text-align: center; color: #7f8c8d;">Generated: ${new Date().toLocaleString()}</p>
-    
-    <h2>Tank Design Data</h2>
-    <table>
-        <tr><th>Parameter</th><th>Value</th><th>Unit</th></tr>
-        <tr><td>Tank Inner Diameter</td><td>${inputs.tankID}</td><td>mm</td></tr>
-        <tr><td>Product Density</td><td>${inputs.productDensity}</td><td>Kg/m³</td></tr>
-        <tr><td>Tank High Liquid Level</td><td>${inputs.HLL}</td><td>mm</td></tr>
-        <tr><td>Design Effective Thickness</td><td>${calc.te.toFixed(2)}</td><td>mm</td></tr>
-        <tr><td>Inside Diameter</td><td>${calc.ID.toFixed(2)}</td><td>mm</td></tr>
-    </table>
-    
-    <h2>Verification Summary</h2>
-    <table>
-        <tr><th>Check Item</th><th>Calculated Value</th><th>Allowable Value</th><th>Status</th></tr>
-        <tr>
-            <td>Internal Pressure Check</td>
-            <td>tr = ${calc.tr.toFixed(3)} mm</td>
-            <td>te = ${calc.te.toFixed(2)} mm</td>
-            <td class="${calc.checkTr === 'OK' ? 'status-ok' : 'status-not-ok'}">${calc.checkTr}</td>
-        </tr>
-        <tr>
-            <td>Test Pressure Check</td>
-            <td>t_st = ${calc.tSt2.toFixed(3)} mm</td>
-            <td>te = ${calc.te.toFixed(2)} mm</td>
-            <td class="${calc.checkTSt === 'OK' ? 'status-ok' : 'status-not-ok'}">${calc.checkTSt}</td>
-        </tr>
-        <tr>
-            <td>External Pressure Check</td>
-            <td>Pa = ${calc.Pa.toFixed(4)} MPa</td>
-            <td>Pdv = ${calc.Pdv.toFixed(4)} MPa</td>
-            <td class="${calc.checkPa === 'OK' ? 'status-ok' : 'status-not-ok'}">${calc.checkPa}</td>
-        </tr>
-        <tr>
-            <td>OBE Seismic Check</td>
-            <td>Pm = ${calc.Pm_OBE.toFixed(3)} MPa</td>
-            <td>St = ${inputs.St.toFixed(2)} MPa</td>
-            <td class="${calc.checkOBE === 'OK' ? 'status-ok' : 'status-not-ok'}">${calc.checkOBE}</td>
-        </tr>
-        <tr>
-            <td>SSE Seismic Check</td>
-            <td>Pl+Pb = ${calc.PlPb_SSE.toFixed(3)} MPa</td>
-            <td>Fy = ${inputs.Fy.toFixed(2)} MPa</td>
-            <td class="${calc.checkSSE === 'OK' ? 'status-ok' : 'status-not-ok'}">${calc.checkSSE}</td>
-        </tr>
-    </table>
-    
-    <h2>Natural Frequency Analysis</h2>
-    <table>
-        <tr><th>Condition</th><th>First Mode (Hz)</th><th>Second Mode (Hz)</th><th>Third Mode (Hz)</th><th>Fourth Mode (Hz)</th></tr>
-        <tr>
-            <td>Full Liquid Level</td>
-            <td>${calc.freqFull1.toFixed(3)}</td>
-            <td>${calc.freqFull2.toFixed(3)}</td>
-            <td>${calc.freqFull3.toFixed(3)}</td>
-            <td>${calc.freqFull4.toFixed(3)}</td>
-        </tr>
-        <tr>
-            <td>Empty</td>
-            <td>${calc.freqEmpty1.toFixed(3)}</td>
-            <td>${calc.freqEmpty2.toFixed(3)}</td>
-            <td>${calc.freqEmpty3.toFixed(3)}</td>
-            <td>${calc.freqEmpty4.toFixed(3)}</td>
-        </tr>
-    </table>
-    
-    <h2>Pump Well Braces Design</h2>
-    <table>
-        <tr><th>Parameter</th><th>Value</th><th>Unit</th></tr>
-        <tr><td>Brace Length</td><td>${calc.Lbr.toFixed(2)}</td><td>mm</td></tr>
-        <tr><td>Section Area</td><td>${calc.angleArea.toFixed(2)}</td><td>mm²</td></tr>
-        <tr><td>Slenderness Ratio</td><td>${calc.slendernessRatio.toFixed(3)}</td><td>-</td></tr>
-        <tr><td>Allowable Compressive Stress</td><td>${calc.allowableCompressiveStress.toFixed(3)}</td><td>MPa</td></tr>
-        <tr><td>Normal Stress (OBE)</td><td>${calc.normalStressOneAngleOBE.toFixed(3)}</td><td>MPa</td></tr>
-        <tr><td>Normal Stress (SSE)</td><td>${calc.normalStressOneAngleSSE.toFixed(3)}</td><td>MPa</td></tr>
-    </table>
-    
+    <p style="text-align:center; color:#7f8c8d;">Generated: ${new Date().toLocaleString()}</p>
+
+    <h2>Part 1 - Input Data</h2>
+    ${inputHtml}
+
+    <h2>Part 2 - Calculation Results &amp; Formulae</h2>
+    ${outputHtml}
+
+    <h2>Part 3 - Verification Summary</h2>
+    ${verifyHtml}
+
     <div class="info">
-        <strong>Report Status:</strong> ${(calc.checkTr === 'OK' && calc.checkTSt === 'OK' && calc.checkPa === 'OK' && calc.checkOBE === 'OK' && calc.checkSSE === 'OK') ? 
-            '✅ All verification checks passed successfully' : 
-            '⚠️ Some verification checks require attention - Please review the results'}
+        <strong>Overall Status:</strong> ${data.allPass ?
+            'All verification checks passed successfully.' :
+            'Some verification checks require attention - please review the results.'}
     </div>
-    
-    <div style="text-align: right; margin-top: 40px; padding: 20px; background: #f8f9fa; border-top: 2px solid #3498db;">
-        <strong>Developed by: AY</strong>
-    </div>
+
+    <div class="footer"><strong>Developed by: AY</strong></div>
 </body>
 </html>`;
-            
-            // Create a blob and download
-            const blob = new Blob([htmlContent], { type: 'application/msword' });
+
+            const blob = new Blob(['\ufeff', htmlContent], { type: 'application/msword' });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
