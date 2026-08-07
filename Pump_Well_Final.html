@@ -752,7 +752,7 @@
                     <div style="margin-top: 20px; text-align: center;">
                         <button class="export-btn" onclick="exportToPDF()">📄 Export to PDF</button>
                         <button class="export-btn" onclick="exportToWord()">📝 Export to Word</button>
-                        <button class="export-btn" onclick="exportToExcel()">📊 Export to Excel</button>
+                        <button class="export-btn" onclick="saveAsHTML()" style="background: linear-gradient(135deg, #8e44ad 0%, #9b59b6 100%);">🌐 Save As (.html)</button>
                     </div>
                 </div>
             </div>
@@ -1119,6 +1119,97 @@
             
             // Store for export
             window.calculationResults = { calc, inputs };
+        }
+
+        // ---------- Save As / Open Project ----------
+        function collectAllInputs() {
+            const data = {};
+            document.querySelectorAll('.content input[id]').forEach(function(el) {
+                data[el.id] = el.value;
+            });
+            return data;
+        }
+
+        function applyInputs(data) {
+            if (!data || typeof data !== 'object') return;
+            Object.keys(data).forEach(function(id) {
+                const el = document.getElementById(id);
+                if (el) el.value = data[id];
+            });
+            if (typeof calculateAll === 'function') calculateAll();
+        }
+
+        function saveProjectAs() {
+            const project = {
+                app: 'Pump Well Calculation Software',
+                version: 1,
+                savedAt: new Date().toISOString(),
+                inputs: collectAllInputs()
+            };
+            let name = prompt('Save project as (file name):', 'Pump_Well_Project');
+            if (name === null) return; // cancelled
+            name = (name.trim() || 'Pump_Well_Project').replace(/[\\/:*?"<>|]+/g, '_');
+            if (!name.toLowerCase().endsWith('.json')) name += '.json';
+
+            const blob = new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = name;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+        }
+
+        function saveAsHTML() {
+            const clone = document.documentElement.cloneNode(true);
+            const liveInputs = document.querySelectorAll('input[id]');
+            const cloneInputs = clone.querySelectorAll('input[id]');
+            liveInputs.forEach(function(live, i) {
+                const c = cloneInputs[i];
+                if (!c) return;
+                if (live.type === 'checkbox' || live.type === 'radio') {
+                    if (live.checked) c.setAttribute('checked', 'checked');
+                    else c.removeAttribute('checked');
+                } else if (live.type !== 'file') {
+                    c.setAttribute('value', live.value);
+                }
+            });
+
+            let name = prompt('Save software as (file name):', 'Pump_Well_Software');
+            if (name === null) return;
+            name = (name.trim() || 'Pump_Well_Software').replace(/[\\/:*?"<>|]+/g, '_');
+            if (!name.toLowerCase().endsWith('.html')) name += '.html';
+
+            const html = '<!DOCTYPE html>\n' + clone.outerHTML;
+            const blob = new Blob([html], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = name;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+        }
+
+        function loadProjectFile(event) {
+            const file = event.target.files && event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const parsed = JSON.parse(e.target.result);
+                    const inputs = parsed.inputs || parsed;
+                    applyInputs(inputs);
+                    alert('Project loaded successfully.');
+                } catch (err) {
+                    alert('Could not open project: invalid or corrupted file.');
+                }
+                event.target.value = ''; // allow re-loading same file
+            };
+            reader.readAsText(file);
         }
 
         function displayPressureResults(calc, inputs) {
